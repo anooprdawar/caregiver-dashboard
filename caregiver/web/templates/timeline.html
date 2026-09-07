@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Timeline{% endblock %}{% block body %}
+<h1>Timeline <span class="muted">{{ items|length }} events</span></h1>
+<form method="get" class="noprint" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+{% for k in all_kinds %}<label class="chip kind-{{k}}" style="cursor:pointer"><input type="checkbox" name="k" value="{{k}}" {{ 'checked' if k in kinds }} onchange="this.form.kinds.value=[...this.form.querySelectorAll('input[name=k]:checked')].map(i=>i.value).join(',');this.form.submit()" style="width:auto;margin-right:4px">{{k}}</label>{% endfor %}
+<input type="hidden" name="kinds" value="{{ kinds|join(',') }}"><input name="q" value="{{q}}" placeholder="filter text" style="width:180px"><input type="date" name="since" value="{{since}}" style="width:160px"><button>Apply</button>{% if kinds or q or since %}<a href="/timeline">clear</a>{% endif %}</form>
+<ul class="tl">{% for i in items %}<li><div class="d">{{i.day}}</div><div><span class="chip kind-{{i.kind}}">{{i.kind}}</span><a class="t" href="{{i.href}}">{{i.title}}</a>{% if i.who %} <span class="muted small">— {{i.who}}</span>{% endif %}<div class="s">{{i.subtitle}}</div></div></li>{% endfor %}</ul>{% endblock %}

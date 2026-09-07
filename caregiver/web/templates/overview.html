@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}Overview{% endblock %}{% block body %}
+<h1>{{ patient.name if patient else label }} {% if patient and patient.age %}<span class="muted">· {{ patient.age }}y {{ patient.sex or '' }}{% if patient.mrn %} · MRN {{ patient.mrn }}{% endif %}</span>{% endif %}</h1>
+<div class="stat" style="margin-bottom:16px">{% for k,v in counts.items() if v %}<div><b>{{v}}</b>{{k.replace('_',' ')}}</div>{% endfor %}</div>
+<div class="grid g2">
+<div class="card"><h2>Disease & CRAB labs <a href="/labs">all trends →</a></h2>
+<table><tr><th>Test</th><th class="num">Latest</th><th class="num">Prev</th><th>Δ</th><th>Date</th></tr>
+{% for x in panel if x.group in ('disease','crab') %}<tr><td>{{x.label}}</td><td class="num"><b>{{x.value|num}}</b> <span class="muted small">{{x.unit}}</span> {% if x.flag %}<span class="flag {{x.flag}}">{{ 'CRAB' if x.flag=='crab' else x.flag }}</span>{% endif %}</td>
+<td class="num muted">{{x.prev|num}}</td><td>{% if x.delta_pct is not none %}<span class="delta {{ 'down' if x.delta_pct<0 else 'up' }}">{{ '%+.0f'|format(x.delta_pct) }}%</span>{% endif %}</td><td class="muted small" style="white-space:nowrap">{{x.date}}</td></tr>{% endfor %}</table></div>
+<div class="card"><h2>Open items for the team <a href="/notes">caregiver log →</a></h2>
+{% for n in open_notes %}<div class="note-item {{n.kind}}"><b>{{n.title}}</b><div class="meta">{{n.kind}}{% if n.due %} · due {{n.due}}{% endif %}{% if n.owner %} · {{n.owner}}{% endif %}</div></div>{% else %}<p class="muted">Nothing open.</p>{% endfor %}</div>
+<div class="card"><h2>Active medications ({{ meds|length }}) <a href="/medications">reconcile →</a></h2>
+<table>{% for m in meds %}<tr><td><b>{{m.name}}</b><div class="muted small">{{m.latest.dosage or ''}}</div></td><td class="muted small">{{m.latest.requester or ''}}<br>{{m.last}}{% if m.changes>1 %} · {{m.changes}} changes{% endif %}</td></tr>{% endfor %}</table></div>
+<div class="card"><h2>Care team <a href="/team">all →</a></h2>
+<table>{% for t in team %}<tr><td><b>{{t.name}}</b> <span class="muted small">{{t.specialty or t.role or ''}}</span></td><td class="num muted small">{{t.encounters}} visits</td><td class="muted small">last {{t.last_seen or '—'}}</td></tr>{% endfor %}</table></div>
+<div class="card"><h2>Upcoming (60 days)</h2>{% for a in upcoming %}<div style="padding:5px 0;border-bottom:1px solid var(--line)"><b>{{a.start|dt}}</b> {{a.type or a.description or ''}}<div class="muted small">{{a.location or ''}} {% for p in a.participants if not p.ref.startswith('Location') %}· {{p.name}}{% endfor %}</div></div>{% else %}<p class="muted">Nothing scheduled in MyChart.</p>{% endfor %}</div>
+<div class="card"><h2>Active problems</h2>{% for c in conditions %}<div style="padding:4px 0">{{c.display}} <span class="muted small">{{ (c.onset or c.recorded)|day }}</span></div>{% endfor %}</div>
+<div class="card" style="grid-column:1/-1"><h2>Recent imaging & pathology <a href="/reports">all →</a></h2>
+{% for r in reports %}<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="chip kind-{{r.kind}}">{{r.kind}}</span><a href="/reports/{{r.id}}"><b>{{r.effective|day}} · {{r.display}}</b></a><div class="small">{{r.conclusion or ''}}</div></div>{% endfor %}</div>
+<div class="card" style="grid-column:1/-1"><h2>Counts (toxicity watch) </h2><table><tr>{% for x in panel if x.group=='counts' %}<td><div class="muted small">{{x.label}}</div><b>{{x.value|num}}</b> <span class="small muted">{{x.unit}}</span> {% if x.flag %}<span class="flag {{x.flag}}">{{x.flag}}</span>{% endif %}<div class="muted small">{{x.date}}</div></td>{% endfor %}</tr></table></div>
+</div>{% endblock %}

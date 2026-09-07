@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block title %}Imaging & pathology{% endblock %}{% block body %}
+<h1>Imaging, pathology & other reports</h1>
+<div class="tabs noprint" style="margin-bottom:12px">{% for k in ['', 'imaging','pathology','lab','other'] %}<a href="/reports?kind={{k}}" class="{{ 'on' if k==kind }}">{{ k or 'all' }}</a>{% endfor %}</div>
+{% for r in reports %}<div class="card" style="margin-bottom:10px"><span class="chip kind-{{r.kind}}">{{r.kind}}</span><a href="/reports/{{r.id}}"><b>{{r.effective|day}} · {{r.display}}</b></a> <span class="muted small">{{r.performer or ''}} · {{r.status}}</span>
+{% if r.conclusion %}<div class="small" style="margin-top:6px">{{r.conclusion}}</div>{% endif %}</div>{% endfor %}{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Brief{% endblock %}{% block body %}
+<p class="noprint small"><a href="/brief.md">download markdown</a> · <a href="javascript:print()">print</a></p>
+<h1>{{ b.patient.name if b.patient else b.label }} — care brief <span class="muted">{{b.generated}}</span></h1>
+{% if b.patient %}<p class="muted">DOB {{b.patient.birth_date or '?'}}{% if b.patient.age %} · {{b.patient.age}}y{% endif %}{% if b.patient.mrn %} · MRN {{b.patient.mrn}}{% endif %}{% if b.last_sync %} · MyChart data as of {{b.last_sync|dt}}{% endif %}</p>{% endif %}
+<div class="grid g2">
+<div class="card"><h2>Active problems</h2>{% for c in b.conditions %}<div>{{c.display}} <span class="muted small">{{ (c.onset or c.recorded)|day }}</span></div>{% endfor %}
+{% if b.allergies %}<h3>Allergies</h3>{% for a in b.allergies %}<div><b>{{a.substance}}</b> — {{a.reaction or ''}} {{a.severity or ''}}</div>{% endfor %}{% endif %}</div>
+<div class="card"><h2>Open questions / issues</h2>{% for n in b.open_notes %}<div style="padding:3px 0">[{{n.kind}}] <b>{{n.title}}</b>{% if n.due %} <span class="muted small">due {{n.due}}</span>{% endif %}{% if n.body %}<div class="small muted">{{n.body}}</div>{% endif %}</div>{% endfor %}</div>
+<div class="card" style="grid-column:1/-1"><h2>Key labs</h2><table><tr><th>Test</th><th class="num">Latest</th><th>Date</th><th class="num">Previous</th><th>Δ</th><th>Ref</th></tr>
+{% for x in b.panel %}<tr><td>{{x.label}}</td><td class="num"><b>{{x.value|num}}</b> {{x.unit}} {% if x.flag %}<span class="flag {{x.flag}}">{{ 'CRAB' if x.flag=='crab' else x.flag }}</span>{% endif %}</td><td class="muted small">{{x.date}}</td><td class="num muted">{{x.prev|num}}</td><td>{% if x.delta_pct is not none %}{{ '%+.0f'|format(x.delta_pct) }}%{% endif %}</td><td class="muted small">{{x.ref or ''}}</td></tr>{% endfor %}</table></div>
+<div class="card"><h2>Current medications</h2>{% for m in b.active_meds %}<div style="padding:3px 0"><b>{{m.name}}</b> <span class="small">{{m.latest.dosage or ''}}</span> <span class="muted small">{{m.latest.requester or ''}}</span></div>{% endfor %}
+{% if b.recent_stopped %}<h3>Recently stopped</h3>{% for m in b.recent_stopped %}<div class="small">{{m.name}} <span class="muted">(last {{m.last}})</span></div>{% endfor %}{% endif %}</div>
+<div class="card"><h2>Care team</h2>{% for t in b.team %}<div><b>{{t.name}}</b> <span class="muted small">{{t.specialty or ''}} · {{t.encounters}} visits · last {{t.last_seen}}</span></div>{% endfor %}
+<h3>Upcoming</h3>{% for a in b.upcoming %}<div class="small">{{a.start|dt}} — {{a.type or a.description or ''}} <span class="muted">{{a.location or ''}}</span></div>{% else %}<div class="muted small">none</div>{% endfor %}</div>
+<div class="card" style="grid-column:1/-1"><h2>Recent imaging / pathology</h2>{% for r in b.reports %}<div style="padding:3px 0"><b>{{r.effective|day}} {{r.display}}</b> — <span class="small">{{r.conclusion or ''}}</span></div>{% endfor %}</div>
+</div>{% endblock %}

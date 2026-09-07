@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}{{display}}{% endblock %}{% block body %}
+<h1>{{display}} <span class="muted small">{{rows|length}} results</span></h1>
+<div class="card" style="margin-bottom:16px;height:280px"><canvas id="c"></canvas></div>
+<div class="card"><table><tr><th>Date</th><th class="num">Value</th><th>Ref</th><th>Flag</th><th>Status</th><th>Source</th></tr>
+{% for o in rows|reverse %}<tr><td>{{o.effective|dt}}</td><td class="num"><b>{{ o.value_num|num if o.value_num is not none else (o.value_str or '') }}</b> <span class="muted small">{{o.value_unit or ''}}</span></td><td class="muted small">{{o.ref_text or ''}}</td><td>{% if o.interpretation %}<span class="flag {{ 'high' if 'H' in o.interpretation else 'low' }}">{{o.interpretation}}</span>{% endif %}</td><td class="muted small">{{o.status}}</td><td class="muted small">{{o.source}}</td></tr>{% endfor %}</table></div>
+<script>labChart(document.getElementById('c'),{{ points_json|safe }},{zero:true});</script>{% endblock %}

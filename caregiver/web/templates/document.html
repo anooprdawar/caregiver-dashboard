@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}{{d.title}}{% endblock %}{% block body %}
+<p class="noprint small"><a href="/documents">← notes</a></p><h1>{{d.title or d.type}}</h1>
+<p class="muted">{{d.date|dt}} · {{d.type or ''}} · {{d.author or ''}}{% if d.encounter_id %} · <a href="/encounters/{{d.encounter_id}}">visit</a>{% endif %}</p>
+{% if d.content_text %}<pre class="note">{{d.content_text}}</pre>{% elif d.content_path %}<p>Binary note stored at <span class="mono">data/raw/{{d.content_path}}</span> ({{d.content_type}}).</p>{% else %}<p class="muted">No text was retrievable for this note. It may be a scanned document — check <span class="mono">data/raw/DocumentReference/{{d.id}}.json</span>.</p>{% endif %}{% endblock %}

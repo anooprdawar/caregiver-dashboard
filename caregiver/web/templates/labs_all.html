@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block title %}All tests{% endblock %}{% block body %}
+<h1>Every test on record <span class="muted">{{tests|length}}</span></h1>
+<form method="get" class="noprint" style="margin-bottom:10px"><input name="q" value="{{q}}" placeholder="filter" style="width:260px"></form>
+<div class="card"><table><tr><th>Test</th><th class="num">Latest</th><th>Ref</th><th class="num">#</th><th>First</th><th>Last</th><th>Panel</th></tr>
+{% for t in tests %}<tr><td><a href="/labs/test/{{t.display|urlencode}}">{{t.display}}</a> <span class="muted small">{{t.code or ''}}</span></td><td class="num">{{ t.value_num|num if t.value_num is not none else (t.value_str or '') }} <span class="muted small">{{t.value_unit or ''}}</span></td><td class="muted small">{{t.ref_text or ''}}</td><td class="num">{{t.n}}</td><td class="muted small">{{t.first}}</td><td class="muted small">{{t.last}}</td><td class="muted small">{{t.panel_key or ''}}</td></tr>{% endfor %}</table></div>{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Search{% endblock %}{% block body %}
+<h1>Search {% if q %}<span class="muted">“{{q}}”</span>{% endif %}</h1>
+{% for section, rows in hits.items() %}{% if rows %}<div class="card" style="margin-bottom:12px"><h2>{{section}} ({{rows|length}})</h2>
+{% for r in rows %}<div style="padding:4px 0;border-bottom:1px solid var(--line)">
+{% if section=='documents' %}<a href="/documents/{{r.id}}"><b>{{r.title}}</b></a> <span class="muted small">{{r.date|day}} {{r.author or ''}}</span>
+{% elif section=='reports' %}<a href="/reports/{{r.id}}"><b>{{r.display}}</b></a> <span class="muted small">{{r.effective|day}} {{r.kind}}</span>
+{% elif section=='medications' %}<b>{{r.medication}}</b> <span class="small">{{r.dosage or ''}}</span> <span class="muted small">{{r.authored|day}} {{r.status}}</span>
+{% elif section=='observations' %}<a href="/labs/test/{{r.display|urlencode}}">{{r.display}}</a> <span class="muted small">{{r.n}} results</span>
+{% else %}<a href="/notes#{{r.id}}">[{{r.kind}}] {{r.title}}</a> <span class="muted small">{{r.status}}</span>{% endif %}</div>{% endfor %}</div>{% endif %}{% endfor %}
+{% if q and not hits.values()|map('length')|sum %}<p class="muted">No matches.</p>{% endif %}{% endblock %}

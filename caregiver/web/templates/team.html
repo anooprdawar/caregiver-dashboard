@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Care team{% endblock %}{% block body %}
+<h1>Care team <span class="muted">{{team|length}} clinicians</span></h1>
+<div class="card" style="margin-bottom:16px"><table><tr><th>Clinician</th><th>Specialty / role</th><th class="num">Visits</th><th>First</th><th>Last</th><th class="num">Rx</th><th>Phone</th></tr>
+{% for t in team %}<tr><td><b>{{t.name}}</b></td><td class="small">{{t.specialty or ''}} {{t.role or ''}} <span class="muted">{{t.organization or ''}}</span></td><td class="num">{{t.encounters}}</td><td class="muted small">{{t.first_seen or ''}}</td><td class="muted small">{{t.last_seen or ''}}</td><td class="num">{{t.prescriptions or ''}}</td><td class="small">{{t.phone or ''}}</td></tr>{% endfor %}</table></div>
+<div class="card"><h2>Handoffs & ownership gaps <a href="/notes?kind=handoff">log a handoff →</a></h2><p class="muted small">Every time care moves between clinicians, record what was supposed to happen and who owns it. This is the list nobody in the hospital keeps.</p>
+{% for n in handoffs %}<div class="note-item handoff {{n.status}}"><b>{{n.title}}</b> <span class="meta">{{n.status}} · {{n.created|day}}{% if n.owner %} · owner: {{n.owner}}{% endif %}</span><div class="small">{{n.body}}</div></div>{% else %}<p class="muted">None logged.</p>{% endfor %}</div>{% endblock %}

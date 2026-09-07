@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Medications{% endblock %}{% block body %}
+<h1>Medication reconciliation</h1>
+{% if allergies %}<div class="banner"><b>Allergies:</b> {% for a in allergies %}{{a.substance}} ({{a.reaction or '?'}}{% if a.severity %}, {{a.severity}}{% endif %}){{ '; ' if not loop.last }}{% endfor %}</div>{% endif %}
+<div class="card" style="margin-bottom:16px"><h2>Active ({{active|length}})</h2>
+<table><tr><th>Drug</th><th>Current instructions</th><th>Prescriber</th><th>Reason</th><th>Since</th><th>History</th></tr>
+{% for m in active %}<tr id="{{m.key}}"><td><b>{{m.name}}</b></td><td class="small">{{m.latest.dosage or ''}}{% if m.latest.route %} <span class="muted">({{m.latest.route}})</span>{% endif %}</td><td class="small">{{m.latest.requester or ''}}</td><td class="small muted">{{m.latest.reason or ''}}</td><td class="small muted">{{m.first}}</td>
+<td class="small">{% if m.changes>1 %}<details><summary>{{m.changes}} orders</summary>{% for h in m.history %}<div style="padding:3px 0;border-top:1px solid var(--line)"><span class="muted">{{ (h.authored or h.start)|day }}</span> <b>{{h.status}}</b> {{h.medication}} — {{h.dosage or ''}} <span class="muted">{{h.requester or ''}}</span></div>{% endfor %}</details>{% else %}1 order{% endif %}</td></tr>{% endfor %}</table></div>
+<div class="card"><h2>Stopped / completed ({{stopped|length}})</h2>
+<table><tr><th>Drug</th><th>Last instructions</th><th>Prescriber</th><th>Reason</th><th>Period</th></tr>
+{% for m in stopped %}<tr id="{{m.key}}"><td>{{m.name}}</td><td class="small">{{m.latest.dosage or ''}}</td><td class="small">{{m.latest.requester or ''}}</td><td class="small muted">{{m.latest.reason or ''}}</td><td class="small muted">{{m.first}} → {{ m.latest.end|day if m.latest.end else m.last }} <span class="chip">{{m.latest.status}}</span></td></tr>{% endfor %}</table></div>{% endblock %}

@@ -1,0 +1,21 @@
+# --- PHI: never commit patient data ---
+data/
+*.db
+*.db-journal
+*.sqlite
+tokens.json
+config.toml
+.env
+imports/
+imaging/
+exports/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+uv.lock

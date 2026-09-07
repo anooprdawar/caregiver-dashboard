@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}Caregiver log{% endblock %}{% block body %}
+<h1>Caregiver log</h1>
+<div class="grid" style="grid-template-columns:2fr 1fr">
+<div><div class="tabs noprint" style="margin-bottom:10px"><a href="/notes" class="{{ 'on' if not status and not kind }}">all</a><a href="/notes?status=open" class="{{ 'on' if status=='open' }}">open</a><a href="/notes?status=closed" class="{{ 'on' if status=='closed' }}">closed</a> {% for k in NOTE_KINDS %}<a href="/notes?kind={{k}}" class="{{ 'on' if kind==k }}">{{k}}</a>{% endfor %}</div>
+{% for n in notes %}<div class="note-item {{n.kind}} {{n.status}}" id="{{n.id}}"><b>{{n.title}}</b> <span class="meta">{{n.kind}} · {{n.event_date or n.created|day}}{% if n.due %} · <b>due {{n.due}}</b>{% endif %}{% if n.owner %} · {{n.owner}}{% endif %}{% if n.related_type %} · <a href="/{{ 'reports' if n.related_type=='report' else 'encounters' }}/{{n.related_id}}">{{n.related_type}}</a>{% endif %}</span>
+{% if n.body %}<div class="small" style="margin-top:4px;white-space:pre-wrap">{{n.body}}</div>{% endif %}
+<div class="noprint" style="margin-top:6px"><form class="inline" method="post" action="/notes/{{n.id}}/status"><input type="hidden" name="back" value="/notes?status={{status}}&kind={{kind}}"><input type="hidden" name="status" value="{{ 'open' if n.status=='closed' else 'closed' }}"><button>{{ 'reopen' if n.status=='closed' else 'resolve' }}</button></form> <form class="inline" method="post" action="/notes/{{n.id}}/delete" onsubmit="return confirm('Delete?')"><input type="hidden" name="back" value="/notes"><button>delete</button></form></div></div>{% else %}<p class="muted">Nothing here.</p>{% endfor %}</div>
+<div class="card noprint"><h2>Add</h2><form method="post" action="/notes"><input type="hidden" name="back" value="/notes">
+<label class="small muted">Kind</label><select name="kind">{% for k in NOTE_KINDS %}<option>{{k}}</option>{% endfor %}</select>
+<label class="small muted">Title</label><input name="title" required placeholder="One line the doctor can act on">
+<label class="small muted">Details</label><textarea name="body"></textarea>
+<div class="form-row" style="grid-template-columns:1fr 1fr"><div><label class="small muted">Due / ask by</label><input type="date" name="due"></div><div><label class="small muted">Event date</label><input type="date" name="event_date"></div></div>
+<label class="small muted">Owner</label><input name="owner" placeholder="caregiver / Dr. Chen / PCP"><div style="margin-top:8px"><button class="primary">Save</button></div></form>
+<h3>Kinds</h3><p class="small muted"><b>question</b> — to ask at the next visit · <b>issue</b> — a discrepancy or safety concern · <b>decision</b> — a choice pending or made · <b>handoff</b> — care moved between teams; who owns what · <b>symptom</b> — what you observed at home · <b>todo</b> — logistics</p></div></div>{% endblock %}
