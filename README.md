@@ -9,9 +9,9 @@ a caregiver log for the questions, handoffs and discrepancies that no hospital s
 Nothing leaves your computer. There is no cloud, no account, no telemetry.
 
 ```
-                MyChart (Epic FHIR R4)  ──sync──┐
-   MyChart "Download" C-CDA XML/ZIP  ──import──┤
-   Apple Health export (FHIR JSON)   ──import──┼──▶  data/raw/*.json  +  data/caregiver.db  ──▶  http://127.0.0.1:8080
+     Epic FHIR R4 direct (needs org)  ──sync──┐
+   Apple Health Records export      ──import──┤   ← the path that works for an individual
+   MyChart "Download" C-CDA XML/ZIP  ──import──┼──▶  data/raw/*.json  +  data/caregiver.db  ──▶  http://127.0.0.1:8080
    Radiology CD (DICOM) / PDFs       ──index───┘
 ```
 
@@ -61,23 +61,49 @@ Health Data**, then `caregiver import fhir export/clinical-records/`.
 Exports contain what the hospital chose to include. Notes and full report text are often missing
 from C-CDA. That is why Route 2 exists.
 
-### Route 2 — live sync via Epic's patient FHIR API
+### Route 2 — Apple Health Records (the practical sync path)
 
-1. Create a free developer account at <https://fhir.epic.com>. Create an app: **Application Audience = Patients**,
-   redirect URI exactly `http://localhost:8765/callback`, select the R4 resources listed in
-   `caregiver/config.py` (`DEFAULT_SCOPES`). Save. You get a **Non-Production** client ID immediately;
-   the **Production** client ID becomes usable at hospitals after Epic's sync, typically several
-   business days.
-2. Find the hospital's R4 base URL at <https://open.epic.com/MyApps/Endpoints> (search the health
-   system name).
-3. Edit `data/config.toml`: paste `client_id` and `base_url`.
-4. `caregiver connect` opens a browser; **the patient logs in with their MyChart credentials** and
-   approves. Tokens are stored in `data/tokens.json` (mode 0600).
-5. `caregiver sync` pulls everything. Run it whenever you like; it is idempotent. `caregiver sync --loop 6h`
-   keeps it running, or put it in cron/launchd.
+**This is the route that works for an individual with only a MyChart login.** Registering your own
+Epic app does not work: a production client ID is inert until someone at the hospital downloads it
+into their Epic environment, and there is no self-serve path. Apple already did that onboarding at
+essentially every Epic health system, so you ride on their registration.
 
-To test against Epic's sandbox first: leave `base_url` at the default, use the Non-Production client
-ID, and log in as sandbox patient `fhircamila` / `epicepic1`.
+1. iPhone → **Health** → profile picture → **Health Records** → **Add Account** → pick the health
+   system → log in with the patient's MyChart credentials.
+2. The first sync can take **hours** if the record is large. That is normal, not a hang. Records
+   appear under Health → Browse as they land.
+3. Epic keeps feeding the phone from then on. Apple requires health systems to issue renewable
+   tokens (3+ months) or long-lived tokens (1+ year), so the connection survives without re-login.
+4. To pull it onto the laptop: Health → profile picture → **Export All Health Data** → share the
+   `export.zip` to your machine, then:
+
+```bash
+caregiver import fhir ~/Downloads/export.zip     # reads the zip directly
+```
+
+Apple syncs `Observation` (labs and vitals), `Condition`, `MedicationRequest`, `AllergyIntolerance`,
+`Immunization`, `Procedure`, `Patient`, and **clinical notes** via `Binary`, `DocumentReference` and
+`DiagnosticReport`. That last group is what carries MRI/PET report text and consult notes.
+
+**Verify the export actually contains clinical records before relying on it.** There are recurring
+reports of `Export All Health Data` omitting them:
+
+```bash
+unzip -l ~/Downloads/export.zip | grep -c clinical-records   # expect a large number, not 0
+```
+
+If it is 0, use Route 1's C-CDA download instead. The per-record **Export PDF** button in Health is
+useful for handing a single result to a doctor, but it is not an import path: the structure is gone.
+
+### Route 2b — your own Epic client ID (organizations only)
+
+Kept for completeness. Register at <https://fhir.epic.com> (Application Audience = Patients, redirect
+URI `http://localhost:8765/callback`), put the client ID and the org's R4 endpoint from
+<https://open.epic.com/MyApps/Endpoints> into `data/config.toml`, then `caregiver connect` and
+`caregiver sync --loop 24h`. This is fully implemented and works against Epic's sandbox today
+(Non-Production client ID, sandbox patient `fhircamila` / `epicepic1`). It only reaches a real
+hospital if that hospital's Epic administrator loads your client ID, which realistically requires an
+institutional relationship.
 
 ### Route 3 — imaging pixels
 
@@ -91,6 +117,9 @@ and listed on the Image files page. View them with Horos (Mac), MicroDicom (Wind
 This was built against the FHIR R4 spec and Epic's documented patient-API behaviour, **not against a
 live Epic tenant**. Expect to fix these on first contact:
 
+- **Epic-direct is gated, not slow.** A production client ID does nothing until a health system
+  downloads it. Route 2 (Apple) exists because of this. Everything below applies only if you have an
+  institutional path to Route 2b.
 - **Search parameter quirks.** Epic rejects some searches without a `category`. The variants tried
   per resource are in `caregiver/fhir/client.py` (`EPIC_SPECS`). If a resource type shows
   `partial`/`error` in `caregiver status`, add the working params under
@@ -130,7 +159,7 @@ caregiver/
   web/              FastAPI app, queries (read models), templates, vendored Chart.js
   brief.py          one-page appointment brief (markdown + HTML)
   demo.py           synthetic myeloma patient
-tests/              33 tests: normalizer, C-CDA import, every route, note lifecycle
+tests/              34 tests: normalizer, C-CDA + Apple Health import, every route, note lifecycle
 ```
 
 `caregiver reload` re-normalizes `data/raw/` after you improve a mapping; nothing pulled is ever lost.
