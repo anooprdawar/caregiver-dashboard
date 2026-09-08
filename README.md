@@ -40,6 +40,25 @@ caregiver demo          # loads a synthetic myeloma course: ED -> decompression 
 caregiver serve         # open http://127.0.0.1:8080
 ```
 
+## Clearing the demo patient
+
+The demo loads into whatever data directory you point at. To swap it for the real record:
+
+```bash
+caregiver status                # shows a row count per source; 'demo' is the synthetic one
+caregiver reset --demo          # removes only the demo patient, asks first
+caregiver import ccda ~/Downloads/MyChart.zip
+```
+
+`reset --demo` deletes only rows whose source is `demo`, so anything you already imported stays.
+Notes you wrote yourself are tagged `caregiver` and survive unless you clear that source too; add
+`--keep-notes` to preserve every note regardless. `caregiver reset` with no flags wipes the whole
+local record (keeping `config.toml` and `tokens.json`), and `--source <name>` clears one import if
+you need to redo it. Nothing is deleted without a confirmation unless you pass `--yes`.
+
+Cleanest of all is to never mix them: `caregiver demo --data /tmp/demo` for the tour, and a separate
+`--data ~/health` for the real thing.
+
 ## Connecting to real MyChart data
 
 There are three routes. Do the first one today; the second is the "synced" one.
@@ -147,7 +166,7 @@ live Epic tenant**. Expect to fix these on first contact:
 
 ```
 caregiver/
-  cli.py            caregiver init|connect|sync|import|imaging|serve|demo|brief|reload|status
+  cli.py            caregiver init|connect|sync|import|imaging|serve|demo|brief|reload|reset|status
   config.py         data dir, Epic endpoint, scopes
   db.py             SQLite schema + upserts (raw JSON kept alongside)
   myeloma.py        which labs matter, LOINC codes + name patterns, CRAB flags
@@ -159,7 +178,7 @@ caregiver/
   web/              FastAPI app, queries (read models), templates, vendored Chart.js
   brief.py          one-page appointment brief (markdown + HTML)
   demo.py           synthetic myeloma patient
-tests/              34 tests: normalizer, C-CDA + Apple Health import, every route, note lifecycle
+tests/              37 tests: normalizer, C-CDA + Apple Health import, every route, notes, reset, migration
 ```
 
 `caregiver reload` re-normalizes `data/raw/` after you improve a mapping; nothing pulled is ever lost.

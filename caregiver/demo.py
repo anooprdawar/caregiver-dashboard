@@ -326,6 +326,7 @@ def load(cfg, conn) -> int:
         Q.add_note(conn, "todo", "Request DICOM images of MRI (day 0) and both PET/CTs from radiology film library",
                    "Needed for transplant center second opinion. Drop the CD contents into data/imaging/ and run `caregiver imaging index`.",
                    owner="caregiver")
+        conn.execute("UPDATE note SET source='demo'")
     db.set_meta(conn, "demo", "1")
     db.set_meta(conn, "last_sync", db.now_iso())
     conn.commit()

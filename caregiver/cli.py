@@ -167,6 +167,61 @@ def reload(data: Path = data_opt):
 
 
 @app.command()
+def reset(data: Path = data_opt,
+          demo: bool = typer.Option(False, "--demo", help="Remove only demo data, keep everything else"),
+          source: str = typer.Option("", help="Remove only rows from this source (see `caregiver status`)"),
+          keep_notes: bool = typer.Option(False, help="Preserve caregiver-written notes when clearing a source"),
+          yes: bool = typer.Option(False, "--yes", "-y", help="Skip the confirmation prompt")):
+    """Clear imported data. `--demo` removes the synthetic patient and leaves real records alone."""
+    cfg = _cfg(data)
+    conn = db.connect(cfg.db_path)
+    try:
+        breakdown = db.source_breakdown(conn)
+        if not breakdown:
+            typer.echo("Nothing to clear.")
+            return
+        target = "demo" if demo else source
+        if target:
+            if target not in breakdown:
+                typer.echo(f"No rows from source {target!r}. Present: {', '.join(sorted(breakdown))}")
+                raise typer.Exit(1)
+            typer.echo(f"This removes {breakdown[target]} rows from source {target!r}"
+                       + (", keeping caregiver notes." if keep_notes else ", including its notes."))
+            for k, v in sorted(breakdown.items()):
+                if k != target:
+                    typer.echo(f"  keeping {v:>6} rows from {k}")
+            if not yes and not typer.confirm("Proceed?"):
+                raise typer.Abort()
+            removed = db.delete_source(conn, target, keep_notes)
+            typer.echo("Removed: " + (", ".join(f"{t}={n}" for t, n in removed.items()) or "nothing"))
+        else:
+            typer.echo(f"This DELETES the entire local record at {cfg.db_path} and {cfg.raw_dir}:")
+            for k, v in sorted(breakdown.items()):
+                typer.echo(f"  {v:>6} rows from {k}")
+            notes = db.rows(conn, "SELECT COUNT(*) n FROM note WHERE source != 'demo' OR source IS NULL")[0]["n"]
+            if notes:
+                typer.echo(f"  {notes:>6} caregiver-written notes (NOT recoverable by re-importing)")
+            typer.echo("Your config.toml and tokens.json are kept. Use --demo to clear only the demo patient.")
+            if not yes and not typer.confirm("Delete everything?"):
+                raise typer.Abort()
+            conn.close()
+            import shutil
+            cfg.db_path.unlink(missing_ok=True)
+            for suffix in ("-wal", "-shm"):
+                cfg.db_path.with_name(cfg.db_path.name + suffix).unlink(missing_ok=True)
+            shutil.rmtree(cfg.raw_dir, ignore_errors=True)
+            cfg.ensure_dirs()
+            db.connect(cfg.db_path).close()
+            typer.echo("Cleared. Import your real data next, e.g. `caregiver import ccda <zip>`")
+            return
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+@app.command()
 def status(data: Path = data_opt):
     """Row counts and last sync."""
     cfg = _cfg(data)
@@ -175,6 +230,11 @@ def status(data: Path = data_opt):
         typer.echo(f"data: {cfg.data_dir}\nlast_sync: {db.get_meta(conn, 'last_sync')}")
         for k, v in db.counts(conn).items():
             typer.echo(f"  {k:<18}{v}")
+        bd = db.source_breakdown(conn)
+        if bd:
+            typer.echo("sources:")
+            for k, v in sorted(bd.items(), key=lambda x: -x[1]):
+                typer.echo(f"  {k:<28}{v:>7} rows" + ("   <- synthetic, clear with `caregiver reset --demo`" if k == "demo" else ""))
         for r in db.rows(conn, "SELECT * FROM sync_log ORDER BY id DESC LIMIT 15"):
             typer.echo(f"  {r['finished']} {r['resource_type']:<20} {r['count']:>5} {r['status']} {r['error'] or ''}")
     finally:

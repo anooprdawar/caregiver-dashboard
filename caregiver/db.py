@@ -75,7 +75,8 @@ CREATE TABLE IF NOT EXISTS imaging_file (
 -- Caregiver-authored. This is the part MyChart can never give you.
 CREATE TABLE IF NOT EXISTS note (
   id INTEGER PRIMARY KEY AUTOINCREMENT, created TEXT, updated TEXT, kind TEXT, title TEXT, body TEXT,
-  status TEXT DEFAULT 'open', due TEXT, owner TEXT, related_type TEXT, related_id TEXT, event_date TEXT);
+  status TEXT DEFAULT 'open', due TEXT, owner TEXT, related_type TEXT, related_id TEXT, event_date TEXT,
+  source TEXT DEFAULT 'caregiver');
 
 CREATE TABLE IF NOT EXISTS sync_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT, started TEXT, finished TEXT, source TEXT, resource_type TEXT,
@@ -98,8 +99,22 @@ def connect(path: Path | str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.executescript(SCHEMA)
+    _migrate(conn)
     _load_columns(conn)
     return conn
+
+
+# Columns added after the first release. Existing databases are upgraded in place.
+_ADDED_COLUMNS = {"note": {"source": "TEXT DEFAULT 'caregiver'"}}
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, cols in _ADDED_COLUMNS.items():
+        have = {r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')}
+        for name, decl in cols.items():
+            if name not in have:
+                conn.execute(f'ALTER TABLE "{table}" ADD COLUMN "{name}" {decl}')
+    conn.commit()
 
 
 def _load_columns(conn: sqlite3.Connection) -> None:
@@ -175,6 +190,37 @@ def rows(conn: sqlite3.Connection, sql: str, params: tuple | list = ()) -> list[
 def one(conn: sqlite3.Connection, sql: str, params: tuple | list = ()) -> dict[str, Any] | None:
     r = conn.execute(sql, params).fetchone()
     return dict(r) if r else None
+
+
+# Tables carrying a `source` column, i.e. everything ingested from an outside system.
+SOURCED_TABLES = ("patient", "practitioner", "encounter", "condition", "observation", "diagnostic_report",
+                  "document", "medication", "procedure", "appointment", "allergy", "immunization", "care_plan")
+
+
+def source_breakdown(conn: sqlite3.Connection) -> dict[str, int]:
+    """How many rows came from each source, e.g. {'demo': 535, 'ccda:UCSF.xml': 1204}."""
+    out: dict[str, int] = {}
+    for t in (*SOURCED_TABLES, "note"):
+        for r in conn.execute(f'SELECT COALESCE(source, \'unknown\') s, COUNT(*) n FROM "{t}" GROUP BY s'):
+            out[r[0]] = out.get(r[0], 0) + r[1]
+    return out
+
+
+def delete_source(conn: sqlite3.Connection, source: str, keep_notes: bool = False) -> dict[str, int]:
+    """Delete every row from one source. Returns rows removed per table."""
+    removed: dict[str, int] = {}
+    tables = SOURCED_TABLES if keep_notes else (*SOURCED_TABLES, "note")
+    with tx(conn):
+        for t in tables:
+            cur = conn.execute(f'DELETE FROM "{t}" WHERE source = ?', (source,))
+            if cur.rowcount:
+                removed[t] = cur.rowcount
+        # imaging_file has no source column; drop links to reports that no longer exist
+        conn.execute("UPDATE imaging_file SET report_id = NULL WHERE report_id NOT IN (SELECT id FROM diagnostic_report)")
+        conn.execute("DELETE FROM sync_log WHERE source = ?", (source,))
+        if source == "demo":
+            conn.execute("DELETE FROM meta WHERE key = 'demo'")
+    return removed
 
 
 def counts(conn: sqlite3.Connection) -> dict[str, int]:

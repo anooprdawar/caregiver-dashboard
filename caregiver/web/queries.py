@@ -335,13 +335,14 @@ def notes(conn, status: str | None = None, kind: str | None = None) -> list[dict
 
 
 def add_note(conn, kind: str, title: str, body: str = "", due: str | None = None, owner: str | None = None,
-             related_type: str | None = None, related_id: str | None = None, event_date: str | None = None) -> int:
+             related_type: str | None = None, related_id: str | None = None, event_date: str | None = None,
+             source: str = "caregiver") -> int:
     now = db.now_iso()
     cur = conn.execute(
-        "INSERT INTO note(created,updated,kind,title,body,status,due,owner,related_type,related_id,event_date) "
-        "VALUES(?,?,?,?,?,'open',?,?,?,?,?)",
+        "INSERT INTO note(created,updated,kind,title,body,status,due,owner,related_type,related_id,event_date,source) "
+        "VALUES(?,?,?,?,?,'open',?,?,?,?,?,?)",
         (now, now, kind if kind in NOTE_KINDS else "question", title, body, due or None, owner or None,
-         related_type or None, related_id or None, event_date or now[:10]))
+         related_type or None, related_id or None, event_date or now[:10], source))
     conn.commit()
     return cur.lastrowid
 
