@@ -110,6 +110,30 @@ def _resolve_practitioners(client: FhirClient, conn: sqlite3.Connection, raw_dir
         print(f"  Practitioner         resolved {got}/{len(missing)} referenced clinicians")
 
 
+def reload_all(cfg: Config, conn: sqlite3.Connection) -> dict[str, int]:
+    """Re-parse every stored source with the current mapping code.
+
+    Covers raw FHIR under data/raw and the C-CDA files kept in data/imports/ccda. Rows from each
+    re-parsed C-CDA source are cleared first, so entries the old parser produced wrongly (and that
+    the new one no longer emits) do not linger.
+    """
+    from .. import db as _db
+    from ..importers import ccda
+
+    out = {"fhir_rows": reload_raw(cfg, conn), "ccda_files": 0, "ccda_rows": 0}
+    ccda_dir = cfg.imports_dir / "ccda"
+    if ccda_dir.exists():
+        for f in sorted(ccda_dir.glob("*.xml")):
+            source = f"ccda:{f.name}"
+            _db.delete_source(conn, source)
+            with _db.tx(conn):
+                for table, row in ccda.parse(f.read_bytes(), source):
+                    _db.upsert(conn, table, row)
+                    out["ccda_rows"] += 1
+            out["ccda_files"] += 1
+    return out
+
+
 def reload_raw(cfg: Config, conn: sqlite3.Connection) -> int:
     """Re-normalize everything from data/raw. Use after upgrading the mapping code."""
     total = 0

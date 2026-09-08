@@ -21,7 +21,13 @@ SECTION = {  # LOINC section codes
     "encounters": "46240-8", "procedures": "47519-4", "allergies": "48765-2", "immunizations": "11369-6",
     "plan": "18776-5", "notes": "34109-9", "hospital_course": "8648-8", "assessment": "51848-0",
     "reason": "29299-5", "hpi": "10164-2", "discharge_instructions": "8653-8",
+    "studies": "55110-1", "imaging": "18748-4",
 }
+
+# SNOMED codes used by the C-CDA "Problem Status" observation (LOINC 33999-4).
+PROBLEM_STATUS = {"55561003": "active", "73425007": "inactive", "413322009": "resolved",
+                  "246455001": "recurrence", "277022003": "remission"}
+STATUS_OBS_CODES = {"33999-4", "condition-status"}
 
 
 def _t(el, path: str, attr: str | None = None) -> str | None:
@@ -101,14 +107,21 @@ def parse(xml_bytes: bytes, source: str) -> list[tuple[str, dict]]:
     fam = _t(root, "c:author/c:assignedAuthor/c:assignedPerson/c:name/c:family")
     author = " ".join(filter(None, [author, fam])) or _t(root, "c:author/c:assignedAuthor/c:representedOrganization/c:name")
 
-    narrative_parts = []
+    narrative_parts: list[tuple[str, str, str]] = []
     for code, sec in _sections(root):
         title = _t(sec, "c:title") or code or ""
         if code == SECTION["results"]:
             for org in sec.findall("c:entry/c:organizer", NS):
                 panel = _t(org, "c:code", "displayName")
+                kind = myeloma.report_kind(title, panel)
+                if kind in ("imaging", "pathology"):
+                    rows.append(_narrative_report(sec, org, panel, kind, patient_id, source, _eff(org)))
+                    continue
                 for obs in org.findall("c:component/c:observation", NS):
                     rows.append(_result(obs, patient_id, source, panel))
+            # some systems put results directly in the section with no organizer
+            for obs in sec.findall("c:entry/c:observation", NS):
+                rows.append(_result(obs, patient_id, source, title))
         elif code == SECTION["vitals"]:
             for org in sec.findall("c:entry/c:organizer", NS):
                 for obs in org.findall("c:component/c:observation", NS):
@@ -130,16 +143,18 @@ def parse(xml_bytes: bytes, source: str) -> list[tuple[str, dict]]:
                     "start": _date(_t(sa, "c:effectiveTime/c:low", "value")),
                     "end": _date(_t(sa, "c:effectiveTime/c:high", "value")), "source": source}))
         elif code == SECTION["problems"]:
-            for obs in sec.findall(".//c:entry//c:observation", NS):
+            for obs in _problem_observations(sec):
                 val = obs.find("c:value", NS)
                 if val is None:
                     continue
+                abatement = _date(_t(obs, "c:effectiveTime/c:high", "value"))
                 rows.append(("condition", {
                     "id": _id(obs, "ccda-cond"), "patient_id": patient_id, "code": val.get("code"),
                     "display": val.get("displayName") or _ref_text(sec, obs),
-                    "clinical_status": _t(obs, "c:statusCode", "code"), "category": "problem-list-item",
+                    "clinical_status": _problem_status(obs, abatement),
+                    "verification_status": _t(obs, "c:statusCode", "code"), "category": "problem-list-item",
                     "onset": _date(_t(obs, "c:effectiveTime/c:low", "value")),
-                    "abatement": _date(_t(obs, "c:effectiveTime/c:high", "value")), "source": source}))
+                    "abatement": abatement, "source": source}))
         elif code == SECTION["encounters"]:
             for enc in sec.findall("c:entry/c:encounter", NS):
                 perf = enc.find("c:performer/c:assignedEntity", NS)
@@ -174,14 +189,81 @@ def parse(xml_bytes: bytes, source: str) -> list[tuple[str, dict]]:
                     "status": _t(sa, "c:statusCode", "code"), "source": source}))
         else:
             txt = _text_of(sec.find("c:text", NS))
-            if txt:
-                narrative_parts.append(f"## {title}\n{txt}")
-    if narrative_parts:
+            if not txt:
+                continue
+            kind = myeloma.report_kind(title, title)
+            sec_id = f"{doc_id}-{code or title}"
+            if kind in ("imaging", "pathology") or code in (SECTION["studies"], SECTION["imaging"]):
+                rows.append(("diagnostic_report", {
+                    "id": f"ccda-rep-{sec_id}", "patient_id": patient_id, "effective": _eff(sec) or doc_date,
+                    "category": title, "code": code, "display": title,
+                    "kind": kind if kind in ("imaging", "pathology") else "imaging", "status": "final",
+                    "conclusion": _impression(txt), "text": txt, "performer": author, "source": source}))
+            else:
+                narrative_parts.append((title, txt, sec_id))
+    for title, txt, sec_id in narrative_parts:
         rows.append(("document", {
-            "id": f"ccda-{doc_id}", "patient_id": patient_id, "date": doc_date, "type": "C-CDA",
-            "category": "clinical-note", "title": doc_title, "author": author, "status": "final",
-            "content_text": "\n\n".join(narrative_parts), "content_type": "text/plain", "source": source}))
+            "id": f"ccda-{sec_id}", "patient_id": patient_id, "date": doc_date, "type": title,
+            "category": "clinical-note", "title": f"{title} ({doc_title})" if doc_title else title,
+            "author": author, "status": "final", "content_text": txt, "content_type": "text/plain",
+            "source": source}))
     return rows
+
+
+def _problem_observations(sec):
+    """Yield the problem observations in a Problem List section.
+
+    A C-CDA problem entry nests a "Problem Status" observation inside the problem observation.
+    Both match a naive .//observation search, which is why status codes previously appeared as
+    diagnoses named "Active" and "Resolved".
+    """
+    nested = {id(child) for obs in sec.iter(f"{{{NS['c']}}}observation")
+              for child in obs.iter(f"{{{NS['c']}}}observation") if child is not obs}
+    for obs in sec.iter(f"{{{NS['c']}}}observation"):
+        if id(obs) in nested:
+            continue
+        if (_t(obs, "c:code", "code") or "") in STATUS_OBS_CODES:
+            continue
+        yield obs
+
+
+def _problem_status(obs, abatement: str | None) -> str:
+    """C-CDA statusCode is the status of the *act* (nearly always 'completed'), not of the problem.
+
+    Prefer the nested Problem Status observation; otherwise infer from an abatement date.
+    """
+    for rel in obs.findall("c:entryRelationship/c:observation", NS):
+        if (_t(rel, "c:code", "code") or "") in STATUS_OBS_CODES or rel.find("c:value", NS) is not None:
+            val = rel.find("c:value", NS)
+            if val is not None:
+                mapped = PROBLEM_STATUS.get(val.get("code") or "")
+                if mapped:
+                    return mapped
+                name = (val.get("displayName") or "").strip().lower()
+                if name in ("active", "resolved", "inactive", "recurrence", "remission"):
+                    return name
+    return "resolved" if abatement else "active"
+
+
+def _impression(text: str) -> str | None:
+    """Pull the impression/diagnosis line out of a report narrative for the summary views."""
+    m = re.search(r"(?:IMPRESSION|DIAGNOSIS|CONCLUSION|FINDINGS)\s*:?\s*(.+)", text, re.I | re.S)
+    return re.sub(r"\s+", " ", m.group(1)).strip()[:1000] if m else re.sub(r"\s+", " ", text)[:300] or None
+
+
+def _narrative_report(sec, org, display, kind, patient_id, source, effective) -> tuple[str, dict]:
+    """An imaging or pathology 'result' whose payload is narrative text, not a number."""
+    parts = []
+    for obs in org.findall("c:component/c:observation", NS):
+        val = obs.find("c:value", NS)
+        txt = _ref_text(sec, obs) or (_text_of(val) if val is not None else "")
+        if txt:
+            parts.append(txt)
+    text = "\n\n".join(dict.fromkeys(parts)) or _ref_text(sec, org) or ""
+    return ("diagnostic_report", {
+        "id": _id(org, "ccda-rep"), "patient_id": patient_id, "effective": effective,
+        "category": kind, "code": _t(org, "c:code", "code"), "display": display, "status": "final",
+        "kind": kind, "conclusion": _impression(text), "text": text or None, "source": source})
 
 
 def _result(obs, patient_id, source, panel) -> tuple[str, dict]:

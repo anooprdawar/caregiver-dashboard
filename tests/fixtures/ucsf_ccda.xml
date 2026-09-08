@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<ClinicalDocument xmlns="urn:hl7-org:v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <id root="1.2.840.114350.1.13.999" extension="UCSF-DOC-1"/>
+  <title>Continuity of Care Document</title>
+  <effectiveTime value="20260901120000"/>
+  <recordTarget><patientRole><id root="1.2.840.114350" extension="UC123"/>
+    <patient><name><given>Real</given><family>Patient</family></name><administrativeGenderCode code="F"/><birthTime value="19610412"/></patient></patientRole></recordTarget>
+  <author><assignedAuthor><representedOrganization><name>UCSF Health</name></representedOrganization></assignedAuthor></author>
+  <component><structuredBody>
+
+    <component><section><code code="11450-4"/><title>Problem List</title>
+      <text><list><item ID="prob1">Multiple myeloma, IgG kappa</item><item ID="prob2">Spinal cord compression</item></list></text>
+      <entry><act><entryRelationship><observation>
+        <id root="1.1" extension="p1"/><statusCode code="completed"/>
+        <effectiveTime><low value="20260301"/></effectiveTime>
+        <value xsi:type="CD" code="C90.00" displayName="Multiple myeloma, IgG kappa"/>
+        <entryRelationship typeCode="REFR"><observation><code code="33999-4" displayName="Status"/>
+          <value xsi:type="CD" code="55561003" displayName="Active"/></observation></entryRelationship>
+      </observation></entryRelationship></act></entry>
+      <entry><act><entryRelationship><observation>
+        <id root="1.1" extension="p2"/><statusCode code="completed"/>
+        <effectiveTime><low value="20260219"/><high value="20260305"/></effectiveTime>
+        <value xsi:type="CD" code="G95.20" displayName="Spinal cord compression"/>
+        <entryRelationship typeCode="REFR"><observation><code code="33999-4"/>
+          <value xsi:type="CD" code="413322009" displayName="Resolved"/></observation></entryRelationship>
+      </observation></entryRelationship></act></entry>
+      <entry><act><entryRelationship><observation>
+        <id root="1.1" extension="p3"/><statusCode code="completed"/>
+        <effectiveTime><low value="20200101"/></effectiveTime>
+        <value xsi:type="CD" code="I10" displayName="Essential hypertension"/>
+      </observation></entryRelationship></act></entry></section></component>
+
+    <component><section><code code="30954-2"/><title>Results</title>
+      <text><table><tr ID="rad1"><td>MR THORACIC SPINE W WO CONTRAST</td><td>IMPRESSION: Interval decompression T7-T9 with stable hardware. Resolution of epidural mass. No residual cord compression.</td></tr></table></text>
+      <entry><organizer classCode="BATTERY"><id root="2.2" extension="cbc1"/><code code="58410-2" displayName="CBC with Differential"/>
+        <effectiveTime value="20260826"/>
+        <component><observation><id root="2.2" extension="hgb"/><code code="718-7" displayName="Hemoglobin"/><statusCode code="completed"/>
+          <effectiveTime value="20260826"/><value xsi:type="PQ" value="12.5" unit="g/dL"/>
+          <referenceRange><observationRange><value><low value="12.0"/><high value="15.5"/></value></observationRange></referenceRange></observation></component>
+      </organizer></entry>
+      <entry><organizer classCode="BATTERY"><id root="2.2" extension="mri1"/><code code="24590-2" displayName="MR THORACIC SPINE W WO CONTRAST"/>
+        <effectiveTime value="20260802"/>
+        <component><observation><id root="2.2" extension="mriobs"/><code code="24590-2" displayName="MR THORACIC SPINE W WO CONTRAST"/>
+          <statusCode code="completed"/><effectiveTime value="20260802"/>
+          <value xsi:type="ED"><reference value="#rad1"/></value></observation></component>
+      </organizer></entry>
+      <entry><organizer classCode="BATTERY"><id root="2.2" extension="path1"/><code code="33717-0" displayName="Surgical Pathology - bone marrow biopsy"/>
+        <effectiveTime value="20260227"/>
+        <component><observation><id root="2.2" extension="pathobs"/><code code="33717-0" displayName="Surgical Pathology - bone marrow biopsy"/>
+          <statusCode code="completed"/><effectiveTime value="20260227"/>
+          <value xsi:type="ST">DIAGNOSIS: Plasma cell myeloma, 45% plasma cells. FISH: t(11;14) detected. del(17p) not detected.</value></observation></component>
+      </organizer></entry></section></component>
+
+    <component><section><code code="55110-1"/><title>Diagnostic Imaging</title>
+      <text>PET/CT SKULL BASE TO MID-THIGH, 2026-07-29. IMPRESSION: Marked decrease in FDG avidity of all previously seen lesions. Complete metabolic response.</text>
+    </section></component>
+
+    <component><section><code code="8648-8"/><title>Hospital Course</title>
+      <text>Admitted with cord compression, underwent T7-T9 decompression.</text></section></component>
+
+  </structuredBody></component>
+</ClinicalDocument>

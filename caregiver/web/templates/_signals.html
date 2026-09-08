@@ -1,0 +1,9 @@
+{% macro signals(items, compact=False) %}
+<div class="signals">
+{% for s in items %}<div class="sig {{s.severity}}">
+  <div class="sig-hd"><span class="sev">{{ {'watch':'Watch','note':'Note','info':'Trend'}[s.severity] }}</span><b>{{s.title}}</b>{% if s.link %}<a class="small" href="{{s.link}}">open →</a>{% endif %}</div>
+  <div class="sig-detail">{{s.detail}}</div>
+  {% if s.why and not compact %}<div class="sig-why">{{s.why}}</div>{% endif %}
+</div>{% else %}<p class="muted">Nothing crossed a threshold in this window.</p>{% endfor %}
+</div>
+{% endmacro %}

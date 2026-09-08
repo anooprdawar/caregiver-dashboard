@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from .. import db, myeloma
+from .. import db, myeloma, textfmt
 
 ACTIVE_MED_STATUS = ("active", "on-hold", "completed", None)  # Epic marks long-running as 'active'
 
@@ -170,8 +170,9 @@ def timeline(conn, kinds: set[str] | None = None, q: str | None = None, since: s
             return
         if since and date_[:10] < since:
             return
-        items.append({"date": date_, "day": _d(date_), "kind": kind, "title": title or "", "subtitle": subtitle or "",
-                      "href": href, "who": who, "id": item_id})
+        d = _d(date_)
+        items.append({"date": date_, "day": d, "month": d[:7], "kind": kind, "title": title or "",
+                      "subtitle": (subtitle or "").strip(), "href": href, "who": who, "id": item_id})
 
     if not kinds or "encounter" in kinds:
         for e in db.rows(conn, "SELECT id,start,class,type,reason,location,practitioners FROM encounter"):
@@ -179,16 +180,18 @@ def timeline(conn, kinds: set[str] | None = None, q: str | None = None, since: s
             add("encounter", e["start"], f"{e['class'] or 'Visit'}: {e['type'] or ''}".strip(": "), e["reason"] or e["location"],
                 f"/encounters/{e['id']}", who, e["id"])
     if not kinds or "report" in kinds:
-        for r in db.rows(conn, "SELECT id,effective,kind,display,conclusion,performer FROM diagnostic_report WHERE kind<>'lab'"):
-            add(r["kind"], r["effective"], r["display"], (r["conclusion"] or "")[:200], f"/reports/{r['id']}", r["performer"], r["id"])
+        for r in db.rows(conn, "SELECT id,effective,kind,display,conclusion,text,performer FROM diagnostic_report WHERE kind<>'lab'"):
+            add(r["kind"], r["effective"], r["display"], r["conclusion"] or textfmt.summarize(r["text"]),
+                f"/reports/{r['id']}", r["performer"], r["id"])
     if not kinds or "lab" in kinds:
         for r in db.rows(conn, "SELECT substr(effective,1,10) d, COUNT(*) n, GROUP_CONCAT(DISTINCT panel_key) keys "
                                "FROM observation WHERE category LIKE '%aborator%' OR panel_key IS NOT NULL GROUP BY d"):
             keys = [myeloma.BY_KEY[k].label for k in (r["keys"] or "").split(",") if k in myeloma.BY_KEY]
             add("lab", r["d"], f"Labs drawn ({r['n']} results)", ", ".join(keys[:6]), f"/labs?date={r['d']}")
     if not kinds or "document" in kinds:
-        for d in db.rows(conn, "SELECT id,date,type,title,author FROM document"):
-            add("document", d["date"], d["title"] or d["type"], d["type"], f"/documents/{d['id']}", d["author"], d["id"])
+        for d in db.rows(conn, "SELECT id,date,type,title,author,content_text FROM document"):
+            add("document", d["date"], d["title"] or d["type"], textfmt.summarize(d["content_text"], 200),
+                f"/documents/{d['id']}", d["author"], d["id"])
     if not kinds or "medication" in kinds:
         for m in db.rows(conn, "SELECT id,authored,start,status,medication,dosage,requester FROM medication"):
             add("medication", m["authored"] or m["start"], f"Rx {m['status'] or ''}: {m['medication']}", m["dosage"],
@@ -283,8 +286,11 @@ def report(conn, rid: str) -> dict | None:
 
 
 def documents(conn) -> list[dict]:
-    return db.rows(conn, "SELECT id,date,type,category,title,author,status,encounter_id, length(content_text) len "
+    rows = db.rows(conn, "SELECT id,date,type,category,title,author,status,encounter_id,content_text "
                          "FROM document ORDER BY date DESC")
+    for r in rows:
+        r["gist"] = textfmt.summarize(r.pop("content_text", None))
+    return rows
 
 
 def document(conn, did: str) -> dict | None:

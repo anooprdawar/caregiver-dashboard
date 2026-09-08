@@ -120,6 +120,32 @@ def crab_flag(key: str, value: float | None) -> bool:
     return bool(fn and value is not None and fn(value))
 
 
+# Which direction is the bad one, for trend interpretation. Absent = no clear direction.
+WORSE_WHEN = {
+    "m_protein": "high", "kappa_flc": "high", "lambda_flc": "high", "flc_ratio": "high", "igg": "high",
+    "b2m": "high", "ldh": "high", "upep": "high",
+    "calcium": "high", "creatinine": "high", "egfr": "low", "hemoglobin": "low",
+    "wbc": "low", "anc": "low", "platelets": "low", "alc": "low",
+    "albumin": "low", "glucose": "high", "alt": "high", "ast": "high", "bilirubin": "high",
+    "alk_phos": "high", "uric_acid": "high",
+}
+
+# IMWG response thresholds applied to the disease markers, for describing direction of travel only.
+RESPONSE_DROP = 0.25   # >=25% fall in a disease marker is the partial-response threshold
+PROGRESSION_RISE = 0.25  # >=25% rise from nadir is the progression threshold
+
+
+def direction_meaning(key: str, pct_change: float) -> str:
+    """Return 'better', 'worse' or 'flat' for a percent change in a tracked value."""
+    if abs(pct_change) < 10:
+        return "flat"
+    worse = WORSE_WHEN.get(key)
+    if not worse:
+        return "changed"
+    rising = pct_change > 0
+    return "worse" if (rising and worse == "high") or (not rising and worse == "low") else "better"
+
+
 # Words in a DiagnosticReport / DocumentReference that mark it as imaging.
 IMAGING_HINTS = re.compile(
     r"\b(mri|mr\b|ct\b|pet|pet/ct|pet-ct|x-?ray|radiograph|ultrasound|us\b|bone scan|nuclear|"

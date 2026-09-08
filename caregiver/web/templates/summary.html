@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% from "_signals.html" import signals with context %}
+{% block title %}{{weeks}}-week summary{% endblock %}{% block body %}
+<div class="hd-row"><h1>Last {{weeks}} weeks <span class="muted">{{s.start}} → {{s.end}}</span></h1>
+<div class="noprint small">{% for w in [4,8,12,26,52] %}<a class="tab {{ 'on' if w==weeks }}" href="/summary?weeks={{w}}">{{w}}w</a>{% endfor %}
+ · <a href="/summary.md?weeks={{weeks}}">markdown</a> · <a href="javascript:print()">print</a></div></div>
+{% if s.anchored_to_data %}<div class="banner">The newest data in this record is {{s.end}}, so the window is anchored there rather than to today. Re-import to bring it current.</div>{% endif %}
+
+<div class="stat" style="margin-bottom:18px">
+  <div><b>{{s.counts.visits}}</b>visits</div><div><b>{{s.counts.labs}}</b>results</div>
+  <div><b>{{s.counts.reports}}</b>imaging / path</div><div><b>{{s.counts.notes}}</b>notes</div>
+  <div><b>{{s.counts.med_changes}}</b>med changes</div>
+</div>
+
+<h2 class="sec-hd">What stands out</h2>
+{{ signals(s.signals) }}
+
+<div class="grid g2" style="margin-top:20px">
+<div class="card"><h2>Moving the right way ({{s.improving|length}})</h2>
+{% for t in s.improving %}<div class="traj better"><span class="tl-label">{{t.label}}</span>
+  <span class="tl-nums">{{t.first|num}} → <b>{{t.last|num}}</b> <span class="muted">{{t.unit}}</span></span>
+  <span class="pct better">{{ '%+.0f'|format(t.pct) }}%</span></div>{% else %}<p class="muted">None.</p>{% endfor %}</div>
+
+<div class="card"><h2>Moving the wrong way ({{s.worsening|length}})</h2>
+{% for t in s.worsening %}<div class="traj worse"><span class="tl-label">{{t.label}}{% if t.crab %} <span class="flag crab">CRAB</span>{% elif t.abnormal %} <span class="flag {{t.abnormal}}">{{t.abnormal}}</span>{% endif %}</span>
+  <span class="tl-nums">{{t.first|num}} → <b>{{t.last|num}}</b> <span class="muted">{{t.unit}}</span></span>
+  <span class="pct worse">{{ '%+.0f'|format(t.pct) }}%</span></div>{% else %}<p class="muted">None.</p>{% endfor %}</div>
+
+{% if s.meds.started or s.meds.redosed or s.meds.stopped %}
+<div class="card"><h2>Treatment changes</h2>
+{% for group, heading in [('started','Started'),('redosed','Dose changed'),('stopped','Stopped')] %}{% if s.meds[group] %}
+<h3>{{heading}}</h3>{% for m in s.meds[group] %}<div class="med-chg {{group}}"><b>{{m.name}}</b>
+  {% if group=='redosed' and m.from_dosage %}<div class="small muted">was: {{m.from_dosage}}</div>{% endif %}
+  <div class="small">{{m.dosage or ''}}</div>
+  <div class="small muted">{{m.date}}{% if m.requester %} · {{m.requester}}{% endif %}{% if m.reason %} · {{m.reason}}{% endif %}</div></div>{% endfor %}
+{% endif %}{% endfor %}</div>{% endif %}
+
+<div class="card"><h2>Who was seen</h2>
+{% for name, n in s.visits.clinicians %}<div class="row-line"><span>{{name}}</span><span class="muted">{{n}} visit{{ 's' if n>1 }}</span></div>{% else %}<p class="muted">No visits recorded in this window.</p>{% endfor %}
+{% if s.problems.new %}<h3>New problems recorded</h3>{% for c in s.problems.new %}<div class="small">{{c.display}} <span class="muted">{{ (c.onset or c.recorded)|day }}</span></div>{% endfor %}{% endif %}
+{% if s.problems.resolved %}<h3>Resolved</h3>{% for c in s.problems.resolved %}<div class="small muted">{{c.display}} ({{c.abatement|day}})</div>{% endfor %}{% endif %}</div>
+
+{% if s.reports %}<div class="card" style="grid-column:1/-1"><h2>Imaging & pathology in this window</h2>
+{% for r in s.reports %}<div class="rep-row"><span class="chip kind-{{r.kind}}">{{r.kind}}</span>
+  <a href="/reports/{{r.id}}"><b>{{r.effective|day}} · {{r.display}}</b></a>
+  <div class="small">{{ r.conclusion or '' }}</div></div>{% endfor %}</div>{% endif %}
+</div>{% endblock %}

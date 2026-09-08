@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import brief, db, myeloma
+from .. import brief, db, myeloma, synthesis, textfmt
 from ..config import Config, load
 from . import queries as Q
 
@@ -27,6 +27,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     tpl.env.filters["dt"] = lambda s: (s or "")[:16].replace("T", " ")
     tpl.env.filters["num"] = lambda v: "" if v is None else (f"{v:g}" if abs(v) >= 1 else f"{v:.2f}")
     tpl.env.filters["nl2br"] = lambda s: (s or "").replace("\n", "<br>")
+    tpl.env.filters["clinical"] = textfmt.render
+    tpl.env.filters["gist"] = textfmt.summarize
     tpl.env.globals.update(label=cfg.patient_label, GROUP_LABELS=myeloma.GROUP_LABELS, NOTE_KINDS=Q.NOTE_KINDS)
 
     def conn() -> sqlite3.Connection:
@@ -46,7 +48,24 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     def overview(request: Request):
         c = conn()
         try:
-            return render(request, "overview.html", page="overview", **Q.overview(c))
+            return render(request, "overview.html", page="overview", syn=synthesis.build(c), **Q.overview(c))
+        finally:
+            c.close()
+
+    @app.get("/summary", response_class=HTMLResponse)
+    def summary(request: Request, weeks: int = synthesis.DEFAULT_WEEKS):
+        c = conn()
+        try:
+            weeks = max(1, min(weeks, 260))
+            return render(request, "summary.html", page="summary", s=synthesis.build(c, weeks), weeks=weeks)
+        finally:
+            c.close()
+
+    @app.get("/summary.md", response_class=PlainTextResponse)
+    def summary_md(weeks: int = synthesis.DEFAULT_WEEKS):
+        c = conn()
+        try:
+            return synthesis.markdown(c, max(1, min(weeks, 260)), cfg.patient_label)
         finally:
             c.close()
 

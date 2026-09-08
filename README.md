@@ -19,7 +19,8 @@ Nothing leaves your computer. There is no cloud, no account, no telemetry.
 
 | Page | What it answers |
 |---|---|
-| **Overview** | Latest disease-burden and CRAB labs with change vs previous draw, open items for the team, active meds, care team, upcoming appointments, recent imaging/path |
+| **Overview** | Leads with what stands out in the last 12 weeks, then latest disease-burden and CRAB labs, open items, active meds, care team, upcoming appointments |
+| **12-week summary** | The synthesis view: which tracked values moved and how far, treatment changes, imaging/pathology, who was seen, and cross-cutting signals that only appear when those are read against each other |
 | **Timeline** | Every event from every source in one chronological stream, filterable by kind and text |
 | **Labs** | Trend charts with reference bands for the myeloma panel (M-protein, free light chains, ratio, immunoglobulins, B2M, LDH), CRAB labs, counts, chemistry, vitals. Plus every test on record |
 | **Imaging & Path** | Full report text and impressions for MRI, CT, PET, biopsy, marrow, FISH |
@@ -39,6 +40,25 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 caregiver demo          # loads a synthetic myeloma course: ED -> decompression -> dx -> D-RVd -> response
 caregiver serve         # open http://127.0.0.1:8080
 ```
+
+## What the summary computes
+
+`/summary` (and `caregiver summary --weeks 12`) reads the record against itself and reports only
+what it can derive:
+
+- **Direction of travel** for every tracked value, as start → latest with a percent change, split
+  into favourable and unfavourable using a per-value direction table.
+- **A disease marker rising 25% or more off its nadir**, which is the IMWG progression threshold,
+  raised as a `watch`.
+- **CRAB criteria met** at the most recent draw.
+- **A drug started, then a tracked value moving sharply after it.** Timing only, stated as timing.
+- **Abnormal results with no recorded visit since**, and **imaging or pathology with no visit
+  afterwards** — the two shapes a dropped result takes.
+- **Active prescriptions from clinicians not seen in the window**, which is the handoff gap.
+- **Caregiver items past their date.**
+
+It describes the record. It does not interpret it. Every signal links to the page holding the
+underlying data so you can check it before repeating it to a clinician.
 
 ## Clearing the demo patient
 
@@ -176,9 +196,12 @@ caregiver/
   fhir/sync.py      pull all resources, fetch note Binaries, log per resource type
   importers/        ccda.py (MyChart download), fhir_bundle.py (Apple Health), imaging.py (DICOM)
   web/              FastAPI app, queries (read models), templates, vendored Chart.js
+  synthesis.py      the N-week cross-cutting analysis behind /summary
+  textfmt.py        renders clinical note text (ALL-CAPS headings, "LABEL:" run-ins, markdown) as HTML
   brief.py          one-page appointment brief (markdown + HTML)
   demo.py           synthetic myeloma patient
-tests/              37 tests: normalizer, C-CDA + Apple Health import, every route, notes, reset, migration
+tests/              51 tests: normalizer, C-CDA + Apple Health import, synthesis signals,
+                    note rendering, every route, notes, reset, migration
 ```
 
 `caregiver reload` re-normalizes `data/raw/` after you improve a mapping; nothing pulled is ever lost.

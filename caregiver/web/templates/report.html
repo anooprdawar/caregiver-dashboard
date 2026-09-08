@@ -3,7 +3,7 @@
 <h1><span class="chip kind-{{r.kind}}">{{r.kind}}</span>{{r.display}}</h1>
 <p class="muted">{{r.effective|dt}} · {{r.performer or ''}} · {{r.status}} · {{r.category or ''}}{% if r.encounter_id %} · <a href="/encounters/{{r.encounter_id}}">visit</a>{% endif %}</p>
 {% if r.conclusion %}<div class="card" style="margin-bottom:12px"><h2>Impression / conclusion</h2><p style="margin:0">{{r.conclusion}}</p></div>{% endif %}
-{% if r.text %}<div class="card" style="margin-bottom:12px"><h2>Full report</h2><pre class="note">{{r.text}}</pre></div>{% endif %}
+{% if r.text %}<div class="card" style="margin-bottom:12px"><h2>Full report</h2><article class="doc">{{ r.text|clinical|safe }}</article></div>{% endif %}
 {% if r.results %}<div class="card" style="margin-bottom:12px"><h2>Results</h2><table><tr><th>Test</th><th class="num">Value</th><th>Ref</th><th>Flag</th></tr>{% for o in r.results %}<tr><td><a href="/labs/test/{{o.display|urlencode}}">{{o.display}}</a></td><td class="num">{{ o.value_num|num if o.value_num is not none else (o.value_str or '') }} {{o.value_unit or ''}}</td><td class="muted small">{{o.ref_text or ''}}</td><td>{{o.interpretation or ''}}</td></tr>{% endfor %}</table></div>{% endif %}
 {% if r.files %}<div class="card" style="margin-bottom:12px"><h2>Linked image files</h2>{% for f in r.files %}<div class="mono">{{f.modality or f.kind}} · {{f.study_desc or ''}} {{f.series_desc or ''}} · {{f.path}}</div>{% endfor %}</div>{% endif %}
 <div class="card noprint"><h2>Caregiver notes on this report</h2>{% for n in notes %}<div class="note-item {{n.kind}} {{n.status}}"><b>{{n.title}}</b> <span class="meta">{{n.kind}} · {{n.created|day}}</span><div class="small">{{n.body}}</div></div>{% endfor %}

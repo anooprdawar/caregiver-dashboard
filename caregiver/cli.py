@@ -155,13 +155,35 @@ def brief(data: Path = data_opt, out: Path = typer.Option(None, help="Write mark
 
 
 @app.command()
-def reload(data: Path = data_opt):
-    """Re-normalize from data/raw (after upgrading the mapping code)."""
-    from .fhir.sync import reload_raw
+def summary(data: Path = data_opt, weeks: int = typer.Option(12, help="Window size in weeks"),
+            out: Path = typer.Option(None, help="Write markdown here instead of stdout")):
+    """Print the cross-cutting summary for the last N weeks."""
+    from . import synthesis
     cfg = _cfg(data)
     conn = db.connect(cfg.db_path)
     try:
-        typer.echo(f"Re-normalized {reload_raw(cfg, conn)} rows")
+        md = synthesis.markdown(conn, weeks, cfg.patient_label)
+    finally:
+        conn.close()
+    if out:
+        out.write_text(md)
+        typer.echo(f"Wrote {out}")
+    else:
+        sys.stdout.write(md)
+
+
+@app.command()
+def reload(data: Path = data_opt):
+    """Re-parse every stored source with the current code. Run this after upgrading caregiver."""
+    from .fhir.sync import reload_all
+    cfg = _cfg(data)
+    conn = db.connect(cfg.db_path)
+    try:
+        r = reload_all(cfg, conn)
+        typer.echo(f"Re-normalized {r['fhir_rows']} rows from data/raw and "
+                   f"{r['ccda_rows']} rows from {r['ccda_files']} stored C-CDA file(s)")
+        for k, v in db.counts(conn).items():
+            typer.echo(f"  {k:<18}{v}")
     finally:
         conn.close()
 
