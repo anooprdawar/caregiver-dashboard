@@ -158,6 +158,27 @@ def build() -> list[dict]:
          "subject": {"reference": f"Patient/{PID}"}, "encounter": {"reference": "Encounter/e-hem1"}, "performedDateTime": d(19, 9)},
     ]
 
+    # --- Supportive care: transfusions and growth factor
+    for i, (day, kind, desc, enc) in enumerate([
+        (0, "rbc", "Transfusion of 2 units packed red blood cells", "e-ed"),
+        (2, "rbc", "Transfusion of 1 unit packed red blood cells", "e-inpt"),
+        (5, "rbc", "Transfusion of 2 units packed red blood cells", "e-inpt"),
+        (7, "platelet", "Platelet transfusion, apheresis (1 unit)", "e-inpt"),
+        (44, "rbc", "Transfusion of 1 unit packed red blood cells", "e-c1"),
+        (73, "rbc", "Transfusion of 2 units packed red blood cells", "e-er2"),
+        (74, "platelet", "Platelet transfusion, apheresis (1 unit)", "e-er2"),
+        (128, "rbc", "Transfusion of 1 unit packed red blood cells", "e-c5"),
+    ]):
+        res.append({"resourceType": "Procedure", "id": f"pr-tx{i}", "status": "completed",
+                    "code": {"coding": [{"system": "http://snomed.info/sct",
+                                         "code": "116859006" if kind == "rbc" else "116861002"}], "text": desc},
+                    "subject": {"reference": f"Patient/{PID}"}, "encounter": {"reference": f"Encounter/{enc}"},
+                    "performedDateTime": d(day, 13)})
+    for i, day in enumerate([78, 79, 80, 106, 134, 162]):
+        res.append(_med(f"m-gcsf{i}", day, "pegfilgrastim 6 MG/0.6ML injection", "1546451",
+                        "6 mg SC once, 24h after chemotherapy", "completed", "p-hem",
+                        "e-er2" if day < 100 else "e-c5", "Neutropenia prophylaxis", day + 1))
+
     # --- Reports: imaging + pathology
     res += [
         _report("dr-mri", 0, "36471-4", "Radiology", "MRI thoracic and lumbar spine with and without contrast",

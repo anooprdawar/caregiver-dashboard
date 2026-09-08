@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from .. import db, myeloma, textfmt
+from .. import db, interventions, myeloma, textfmt
 
 ACTIVE_MED_STATUS = ("active", "on-hold", "completed", None)  # Epic marks long-running as 'active'
 
@@ -216,8 +216,9 @@ def timeline(conn, kinds: set[str] | None = None, q: str | None = None, since: s
 
 
 # ------------------------------------------------------------------ labs
-def panel_series(conn) -> dict[str, list[dict]]:
-    """{group: [{key,label,unit,note,points:[{d,v,lo,hi}],latest}]}"""
+def panel_series(conn, events: list[dict] | None = None) -> dict[str, list[dict]]:
+    """{group: [{key,label,unit,note,points:[{d,v,lo,hi}],markers:[...],latest}]}"""
+    events = interventions.detect(conn) if events is None else events
     groups: dict[str, list[dict]] = defaultdict(list)
     for item in myeloma.PANEL:
         pts = db.rows(conn, "SELECT effective, value_num, value_unit, ref_low, ref_high FROM observation "
@@ -230,10 +231,12 @@ def panel_series(conn) -> dict[str, list[dict]]:
             byday[_d(p["effective"])] = p
         points = [{"d": d, "v": p["value_num"], "lo": p["ref_low"], "hi": p["ref_high"]} for d, p in sorted(byday.items())]
         last = pts[-1]
+        markers = interventions.markers_for(events, item.key)
         groups[item.group].append({"key": item.key, "label": item.label, "unit": last["value_unit"] or item.unit_hint,
                                    "note": item.note, "points": points, "latest": last["value_num"],
                                    "latest_date": _d(last["effective"]), "lo": last["ref_low"], "hi": last["ref_high"],
-                                   "crab": myeloma.crab_flag(item.key, last["value_num"])})
+                                   "crab": myeloma.crab_flag(item.key, last["value_num"]),
+                                   "markers": markers})
     return {g: groups[g] for g in myeloma.GROUP_LABELS if g in groups}
 
 
@@ -325,7 +328,7 @@ def imaging(conn) -> list[dict]:
 
 
 # ------------------------------------------------------------------ caregiver notes
-NOTE_KINDS = ("question", "issue", "decision", "handoff", "symptom", "todo")
+NOTE_KINDS = ("question", "issue", "decision", "handoff", "symptom", "todo", "milestone")
 
 
 def notes(conn, status: str | None = None, kind: str | None = None) -> list[dict]:

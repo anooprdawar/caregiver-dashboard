@@ -1,6 +1,10 @@
-{% extends "base.html" %}{% from "_signals.html" import signals with context %}
+{% extends "base.html" %}{% from "_signals.html" import signals with context %}{% from "_journey.html" import journey with context %}
 {% block title %}Overview{% endblock %}{% block body %}
 <h1>{{ patient.name if patient else label }} {% if patient and patient.age %}<span class="muted">· {{ patient.age }}y {{ patient.sex or '' }}{% if patient.mrn %} · MRN {{ patient.mrn }}{% endif %}</span>{% endif %}</h1>
+{% if jr.found %}<section class="card course" style="margin-bottom:18px">
+  <h2>Course of illness <span class="muted small">{{jr.start}} → {{jr.end}}</span></h2>
+  {{ journey(jr) }}
+</section>{% endif %}
 <section class="card lead" style="margin-bottom:18px"><h2>Last {{syn.weeks}} weeks <a href="/summary">full summary →</a></h2>
 {{ signals(syn.signals[:5], compact=True) }}</section>
 <div class="stat" style="margin-bottom:16px">{% for k,v in counts.items() if v %}<div><b>{{v}}</b>{{k.replace('_',' ')}}</div>{% endfor %}</div>

@@ -118,3 +118,39 @@ a.tab.on{background:var(--ink);color:#fff}
 .doc-row{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:8px}
 .doc-meta{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .doc-gist{margin:5px 0 0;font-size:13px;color:var(--muted);line-height:1.45}
+
+/* ---------- intervention markers ---------- */
+.mk-legend{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:7px}
+.mk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);cursor:help}
+.mk i{width:9px;height:9px;border-radius:2px;display:inline-block;flex:none}
+.tx-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;background:#fff;border:1px solid var(--line);
+  border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.tx-total{padding-right:16px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center}
+.tx-total b{font-size:26px;line-height:1}
+.tx-total span{font-size:12px;color:var(--muted)}
+.tx-total em,.tx-type em{font-style:normal;font-size:11px;color:var(--muted);display:block}
+.tx-type{display:flex;flex-direction:column;justify-content:center;font-size:13px;padding-right:14px}
+.tx-type i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px}
+.tx-bar a{margin-left:auto;align-self:center}
+
+/* ---------- course of illness ---------- */
+.card.course{border-left:4px solid #6d28d9}
+.jrn{display:grid;gap:0}
+.jstep{display:grid;grid-template-columns:92px 20px 1fr;align-items:stretch}
+.jdate{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;padding:7px 10px 0 0;text-align:right}
+.jrail{position:relative;display:flex;justify-content:center}
+.jrail::before{content:"";position:absolute;top:0;bottom:0;width:2px;background:var(--line)}
+.jstep:first-child .jrail::before{top:12px}.jstep:last-child .jrail::before{bottom:calc(100% - 12px)}
+.jdot{position:relative;width:10px;height:10px;border-radius:50%;background:#6d28d9;margin-top:8px;box-shadow:0 0 0 3px #fff}
+.jstep.own .jdot{background:var(--ink)}
+.jbody{padding:5px 0 12px 12px;min-width:0}
+.jlabel{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#6d28d9}
+.jstep.own .jlabel{color:var(--ink)}
+.jlabel .tag{margin-left:6px;background:var(--ink);color:#fff;border-radius:8px;padding:0 6px;font-size:9.5px;letter-spacing:.04em}
+.jtitle{font-size:14.5px;font-weight:500;margin-top:1px}
+.jdetail{font-size:12.5px;color:var(--muted);margin-top:2px}
+.jmissing{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.jmissing summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.jadd{display:flex;gap:6px;align-items:center;margin:7px 0}
+.jadd .jm-label{font-size:12px;font-weight:600;min-width:96px;color:var(--muted)}
+.jadd input[type=date]{width:150px}.jadd input[name=title]{flex:1}

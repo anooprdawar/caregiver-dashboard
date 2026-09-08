@@ -19,10 +19,11 @@ Nothing leaves your computer. There is no cloud, no account, no telemetry.
 
 | Page | What it answers |
 |---|---|
-| **Overview** | Leads with what stands out in the last 12 weeks, then latest disease-burden and CRAB labs, open items, active meds, care team, upcoming appointments |
+| **Overview** | Opens with the course of illness — presentation, what was found, surgery, work-up, diagnosis, biopsy, radiation, treatment, response — then what stands out in the last 12 weeks, then latest disease-burden and CRAB labs, open items, active meds, care team, upcoming appointments |
 | **12-week summary** | The synthesis view: which tracked values moved and how far, treatment changes, imaging/pathology, who was seen, and cross-cutting signals that only appear when those are read against each other |
 | **Timeline** | Every event from every source in one chronological stream, filterable by kind and text |
-| **Labs** | Trend charts with reference bands for the myeloma panel (M-protein, free light chains, ratio, immunoglobulins, B2M, LDH), CRAB labs, counts, chemistry, vitals. Plus every test on record |
+| **Labs** | Trend charts with reference bands, **overlaid with the interventions that explain them**: transfusions on haemoglobin and platelets, growth factor on every white-count chart, ESA and IV iron on haemoglobin. Running transfusion count across the top |
+| **Transfusions** | Every transfusion and supportive-care event with dates, totals per type, and where each was found |
 | **Imaging & Path** | Full report text and impressions for MRI, CT, PET, biopsy, marrow, FISH |
 | **Notes** | Full text of clinical notes (consults, discharge summaries, progress notes) |
 | **Meds** | Reconciliation: one row per drug with the *current* instructions, plus every order that changed it, who wrote it and why. Allergies shown above |
@@ -40,6 +41,39 @@ python3 -m venv .venv && . .venv/bin/activate && pip install -e .
 caregiver demo          # loads a synthetic myeloma course: ED -> decompression -> dx -> D-RVd -> response
 caregiver serve         # open http://127.0.0.1:8080
 ```
+
+## Course of illness
+
+The overview opens with the arc, rebuilt from the record: how she presented, what the first scan or
+operation found, the surgery, the work-up, the diagnosis, the biopsy that confirmed it, radiation,
+the start of systemic therapy, rehab, and the restaging that measured whether it worked.
+
+The distinction that matters most here is between the **presenting finding** and the **diagnosis**.
+A plasmacytoma compressing the cord is what was found; multiple myeloma is what it turned out to be,
+usually weeks later. Conditions that merely mention the disease as a consequence ("chronic kidney
+disease (myeloma kidney)", "anaemia in neoplastic disease") are excluded from dating the diagnosis,
+because using one puts the whole sequence out of order.
+
+Where the record is silent, the overview lists the missing stages and lets you type them in from
+memory. A milestone you write always replaces the detected one.
+
+## Interventions on the charts
+
+A haemoglobin that climbs after a transfusion is a different fact from one that climbs because the
+disease is responding. The record holds both, in different tables, never side by side. Every trend
+chart is overlaid with the interventions that act on it:
+
+| Intervention | Charts it marks |
+|---|---|
+| Red cell transfusion, ESA, IV iron | Haemoglobin |
+| Platelet transfusion, plasma, TPO agonist | Platelets |
+| Growth factor (filgrastim, pegfilgrastim, sargramostim and brands) | WBC, neutrophils, lymphocytes |
+| IVIG | IgG |
+
+Events are found across medications, procedures and coded observations, de-duplicated to one per
+type per day, and counted. The Labs page carries a running transfusion total; `/interventions` lists
+every event with its source. The count is **transfusion days, not units** — the record stores the
+order, and not always how many units were given.
 
 ## What the summary computes
 
@@ -196,12 +230,15 @@ caregiver/
   fhir/sync.py      pull all resources, fetch note Binaries, log per resource type
   importers/        ccda.py (MyChart download), fhir_bundle.py (Apple Health), imaging.py (DICOM)
   web/              FastAPI app, queries (read models), templates, vendored Chart.js
+  interventions.py  detects transfusions, growth factor, ESA, iron, IVIG and pairs each with the charts it explains
+  journey.py        reconstructs the course of illness as ordered milestones
   synthesis.py      the N-week cross-cutting analysis behind /summary
   textfmt.py        renders clinical note text (ALL-CAPS headings, "LABEL:" run-ins, markdown) as HTML
   brief.py          one-page appointment brief (markdown + HTML)
   demo.py           synthetic myeloma patient
-tests/              51 tests: normalizer, C-CDA + Apple Health import, synthesis signals,
-                    note rendering, every route, notes, reset, migration
+tests/              75 tests: normalizer, C-CDA + Apple Health import, synthesis signals,
+                    intervention detection, course reconstruction, note rendering, every
+                    route, notes, reset, migration
 ```
 
 `caregiver reload` re-normalizes `data/raw/` after you improve a mapping; nothing pulled is ever lost.

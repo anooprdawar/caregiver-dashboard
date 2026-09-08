@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Transfusions & supportive care{% endblock %}{% block body %}
+<div class="hd-row"><h1>Transfusions & supportive care</h1><span class="small noprint"><a href="/labs">back to trends →</a></span></div>
+<div class="tx-bar" style="margin-bottom:18px">
+  <div class="tx-total"><b>{{tally.transfusion_days}}</b><span>transfusion day{{ 's' if tally.transfusion_days != 1 }} to date</span>
+  {% if tally.transfusion_first %}<em>{{tally.transfusion_first}} → {{tally.transfusion_last}}</em>{% endif %}</div>
+  {% for p in tally.by_type %}<div class="tx-type"><i style="background:{{p.color}}"></i><b>{{p.count}}</b> {{p.label}}<em>{{p.first}} → {{p.last}}</em></div>{% endfor %}
+</div>
+<p class="muted small">Counted as one event per type per day. A single day may have covered more than one unit —
+the record stores the order, not always the units given. Verify unit counts against the transfusion service if the
+exact number matters.</p>
+<div class="card"><table><tr><th>Date</th><th>Type</th><th>What</th><th>Detail</th><th>Ordered / performed by</th><th>From</th></tr>
+{% for e in events %}<tr><td class="muted">{{e.date}}</td>
+  <td><span class="mk"><i style="background:{{e.color}}"></i>{{e.short}}</span></td>
+  <td>{{e.what}}</td><td class="small muted">{{e.detail or ''}}</td><td class="small">{{e.who or ''}}</td>
+  <td class="small muted">{{e.origin}}</td></tr>{% endfor %}</table></div>{% endblock %}

@@ -1,0 +1,36 @@
+{% macro journey(j, compact=False) %}
+<div class="jrn">
+{% for s in j.found %}
+  <div class="jstep {{ 'own' if s.origin=='caregiver' }}">
+    <div class="jdate">{{s.date}}</div>
+    <div class="jrail"><span class="jdot"></span></div>
+    <div class="jbody">
+      <div class="jlabel">{{s.label}}{% if s.origin=='caregiver' %}<span class="tag">yours</span>{% endif %}</div>
+      <div class="jtitle">{% if s.href %}<a href="{{s.href}}">{{s.title}}</a>{% else %}{{s.title}}{% endif %}</div>
+      {% if s.detail and not compact %}<div class="jdetail">{{s.detail}}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+{% for m in j.extra %}
+  <div class="jstep own"><div class="jdate">{{m.date}}</div><div class="jrail"><span class="jdot"></span></div>
+    <div class="jbody"><div class="jlabel">Milestone<span class="tag">yours</span></div>
+      <div class="jtitle">{{m.title}}</div>{% if m.detail and not compact %}<div class="jdetail">{{m.detail}}</div>{% endif %}</div></div>
+{% endfor %}
+</div>
+{% if j.out_of_order %}<div class="banner">{% for w in j.out_of_order %}{{w}}<br>{% endfor %}</div>{% endif %}
+{% if j.missing and not compact %}
+<details class="jmissing noprint"><summary>{{ j.missing|length }} stage(s) not found in the record — add from memory</summary>
+  <p class="small muted">The record only knows what was filed into it. If one of these happened, add it and it will
+     take the place of anything detected for that stage.</p>
+  {% for s in j.missing %}
+  <form method="post" action="/notes" class="jadd">
+    <input type="hidden" name="kind" value="milestone"><input type="hidden" name="owner" value="{{s.key}}">
+    <input type="hidden" name="back" value="/">
+    <span class="jm-label">{{s.label}}</span>
+    <input type="date" name="event_date" required>
+    <input name="title" placeholder="{{s.hint}}" required>
+    <button>Add</button>
+  </form>
+  {% endfor %}
+</details>{% endif %}
+{% endmacro %}

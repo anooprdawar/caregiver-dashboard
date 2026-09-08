@@ -1,8 +1,20 @@
 {% extends "base.html" %}{% block title %}Labs{% endblock %}{% block body %}
-<h1>Lab trends <a class="small" href="/labs/all">every test →</a></h1>
+<div class="hd-row"><h1>Lab trends</h1><span class="small noprint"><a href="/labs/all">every test →</a></span></div>
+{% if tally.total_events %}<div class="tx-bar">
+  <div class="tx-total"><b>{{tally.transfusion_days}}</b><span>transfusion day{{ 's' if tally.transfusion_days != 1 }} to date</span>
+    {% if tally.transfusion_first %}<em>{{tally.transfusion_first}} → {{tally.transfusion_last}}</em>{% endif %}</div>
+  {% for p in tally.by_type %}<div class="tx-type"><i style="background:{{p.color}}"></i>
+    <b>{{p.count}}</b> {{p.label}}<em>{{p.first}} → {{p.last}}</em></div>{% endfor %}
+  <a class="small noprint" href="/interventions">all events →</a>
+</div>{% endif %}
 <div class="tabs noprint" style="margin-bottom:12px"><span class="muted small">Results by draw date:</span> {% for d in days[:12] %}<a href="/labs?date={{d.d}}" class="{{ 'on' if d.d==date }}">{{d.d}} <span class="muted">({{d.n}})</span></a>{% endfor %}</div>
 {% if date %}<div class="card" style="margin-bottom:16px"><h2>Results drawn {{date}} <a href="/labs">hide</a></h2><table><tr><th>Test</th><th class="num">Value</th><th>Ref</th><th>Flag</th></tr>
 {% for o in day_results %}<tr><td><a href="/labs/test/{{o.display|urlencode}}">{{o.display}}</a></td><td class="num">{{ o.value_num|num if o.value_num is not none else (o.value_str or '') }} <span class="muted small">{{o.value_unit or ''}}</span></td><td class="muted small">{{o.ref_text or ''}}</td><td>{% if o.interpretation %}<span class="flag {{ 'high' if 'H' in o.interpretation else 'low' }}">{{o.interpretation}}</span>{% endif %}</td></tr>{% endfor %}</table></div>{% endif %}
 {% for g, items in series.items() %}<h3>{{ GROUP_LABELS[g] }}</h3><div class="charts" style="margin-bottom:18px">
-{% for s in items %}<div class="chart"><div class="hd"><b>{{s.label}}</b><span><b>{{s.latest|num}}</b> <span class="muted">{{s.unit}}</span> {% if s.crab %}<span class="flag crab">CRAB</span>{% endif %} <span class="muted">{{s.latest_date}}</span></span></div><canvas id="c-{{s.key}}"></canvas>{% if s.note %}<div class="note">{{s.note}}</div>{% endif %}</div>{% endfor %}</div>{% endfor %}
-<script>const S={{ series_json|safe }};for(const g in S)for(const s of S[g])labChart(document.getElementById('c-'+s.key),s.points,{zero:s.key!=='weight'});</script>{% endblock %}
+{% for s in items %}<div class="chart"><div class="hd"><b>{{s.label}}</b><span><b>{{s.latest|num}}</b> <span class="muted">{{s.unit}}</span> {% if s.crab %}<span class="flag crab">CRAB</span>{% endif %} <span class="muted">{{s.latest_date}}</span></span></div>
+<canvas id="c-{{s.key}}"></canvas>
+{% if s.markers %}<div class="mk-legend">{% for k, ms in s.markers|groupby('key') %}{% set m0 = ms|first %}
+  <span class="mk" title="{{ ms|map(attribute='d')|join(', ') }}"><i style="background:{{m0.color}}"></i>{{m0.label}} ×{{ms|length}}</span>{% endfor %}</div>{% endif %}
+{% if s.note %}<div class="note">{{s.note}}</div>{% endif %}</div>{% endfor %}</div>{% endfor %}
+<script>const S={{ series_json|safe }};
+for(const g in S)for(const s of S[g])labChart(document.getElementById('c-'+s.key),s.points,{zero:s.key!=='weight',markers:s.markers,label:s.label});</script>{% endblock %}

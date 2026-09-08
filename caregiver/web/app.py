@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import brief, db, myeloma, synthesis, textfmt
+from .. import brief, db, interventions, journey, myeloma, synthesis, textfmt
 from ..config import Config, load
 from . import queries as Q
 
@@ -48,7 +48,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     def overview(request: Request):
         c = conn()
         try:
-            return render(request, "overview.html", page="overview", syn=synthesis.build(c), **Q.overview(c))
+            return render(request, "overview.html", page="overview", syn=synthesis.build(c),
+                          jr=journey.build(c), **Q.overview(c))
         finally:
             c.close()
 
@@ -85,11 +86,12 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     def labs(request: Request, date: str = ""):
         c = conn()
         try:
-            series = Q.panel_series(c)
+            events = interventions.detect(c)
+            series = Q.panel_series(c, events)
             day = Q.labs_on(c, date) if date else []
             days = db.rows(c, "SELECT substr(effective,1,10) d, COUNT(*) n FROM observation WHERE category LIKE '%aborator%' GROUP BY d ORDER BY d DESC")
             return render(request, "labs.html", page="labs", series=series, series_json=json.dumps(series), date=date,
-                          day_results=day, days=days)
+                          day_results=day, days=days, tally=interventions.tally(events))
         finally:
             c.close()
 
@@ -107,7 +109,10 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         try:
             rows = Q.test_series(c, display)
             pts = [{"d": (r["effective"] or "")[:10], "v": r["value_num"], "lo": r["ref_low"], "hi": r["ref_high"]} for r in rows if r["value_num"] is not None]
-            return render(request, "lab_test.html", page="labs", display=display, rows=rows, points_json=json.dumps(pts))
+            key = next((r["panel_key"] for r in rows if r.get("panel_key")), None)
+            marks = interventions.markers_for(interventions.detect(c), key) if key else []
+            return render(request, "lab_test.html", page="labs", display=display, rows=rows,
+                          points_json=json.dumps(pts), marks=marks, marks_json=json.dumps(marks))
         finally:
             c.close()
 
@@ -191,6 +196,16 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         c = conn()
         try:
             return render(request, "imaging.html", page="imaging", imaging_dir=str(cfg.imaging_dir), **Q.imaging(c))
+        finally:
+            c.close()
+
+    @app.get("/interventions", response_class=HTMLResponse)
+    def interventions_page(request: Request):
+        c = conn()
+        try:
+            events = interventions.detect(c)
+            return render(request, "interventions.html", page="labs", events=list(reversed(events)),
+                          tally=interventions.tally(events))
         finally:
             c.close()
 
