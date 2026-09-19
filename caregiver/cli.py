@@ -74,6 +74,20 @@ imp = typer.Typer(help="Import offline exports (no Epic app registration needed)
 app.add_typer(imp, name="import")
 
 
+@imp.command("auto")
+def import_auto(path: Path, data: Path = data_opt):
+    """Import a download of any supported kind; the content decides, not the file name."""
+    from .ingest import detect_kind, import_any
+    cfg = _cfg(data)
+    conn = db.connect(cfg.db_path)
+    try:
+        typer.echo(f"{path.name}: detected {detect_kind(path)}")
+        r = import_any(cfg, conn, path)
+        typer.echo("  " + (", ".join(f"{k}={v}" for k, v in sorted(r["counts"].items())) or "nothing recognised"))
+    finally:
+        conn.close()
+
+
 @imp.command("ccda")
 def import_ccda(path: Path, data: Path = data_opt):
     """Import a C-CDA XML/ZIP from MyChart 'Download' / 'Visit summary'."""
@@ -112,6 +126,80 @@ def imaging_index(folder: Path = typer.Argument(None), data: Path = data_opt):
         typer.echo(imaging.index_folder(cfg, conn, folder))
     finally:
         conn.close()
+
+
+@app.command()
+def watch(folder: Path = typer.Argument(None, help="Folder to watch (default: watch_dir in config, else ~/Downloads)"),
+          data: Path = data_opt, interval: float = typer.Option(5.0, help="Seconds between checks"),
+          once: bool = typer.Option(False, help="Do a single pass and exit"),
+          days: int = typer.Option(30, help="Ignore files older than this on the first pass; 0 for no limit")):
+    """Watch a folder and import any MyChart / Apple Health download that appears in it."""
+    from . import watcher
+    cfg = _cfg(data)
+    target = Path(folder or cfg.watch_dir or "~/Downloads").expanduser()
+    if not target.is_dir():
+        typer.echo(f"Not a folder: {target}")
+        raise typer.Exit(1)
+
+    def report(event: str, info: dict):
+        if event == "importing":
+            typer.echo(f"  {Path(info['path']).name} ({info['kind']}) …")
+        elif event == "imported":
+            counts = ", ".join(f"{k}={v}" for k, v in sorted(info["counts"].items())) or "nothing new"
+            typer.echo(f"  imported {Path(info['path']).name}: {counts}")
+
+    typer.echo(f"Watching {target}\nDownload from MyChart and it will appear in the dashboard. Ctrl-C to stop.")
+    try:
+        results = watcher.watch(cfg, target, interval=interval, once=once,
+                                max_age_days=days or None, on_event=report)
+    except KeyboardInterrupt:
+        typer.echo("\nStopped.")
+        return
+    if once:
+        typer.echo(f"Imported {len(results)} file(s).")
+
+
+@app.command()
+def fetch(data: Path = data_opt, url: str = typer.Option("", help="Portal login URL (default: portal_url in config)"),
+          timeout: int = typer.Option(900, help="Seconds to leave the browser open")):
+    """Open your patient portal in a browser, then import whatever you download from it.
+
+    You log in yourself, including any code the portal texts you. No password is ever handled here.
+    The browser profile is kept, so 'remember this device' usually skips the code on later runs.
+    """
+    from .fetcher import FetchError, fetch_and_import
+    cfg = _cfg(data)
+    target = url or cfg.portal_url
+    if not target:
+        typer.echo("No portal URL. Pass --url https://mychart.<your-health-system>.org/ "
+                   "or set portal_url in data/config.toml")
+        raise typer.Exit(1)
+
+    def report(event: str, info: dict):
+        msg = {
+            "opening": lambda: f"Opening {info.get('url')}",
+            "await_login": lambda: ("\n  Log in in the browser window (including any texted code).\n"
+                                    "  Then go to Sharing Hub or Document Center and download the record.\n"
+                                    "  Whatever downloads is imported automatically. Close the window when done.\n"),
+            "navigating": lambda: f"  trying to open '{info.get('to')}' for you",
+            "downloaded": lambda: f"  caught {Path(info['path']).name}",
+            "duplicate": lambda: f"  {Path(info['path']).name} already imported, skipping",
+            "skipped": lambda: f"  {Path(info['path']).name} is not a clinical file ({info.get('kind')})",
+            "imported": lambda: "  imported: " + (", ".join(f"{k}={v}" for k, v in sorted(info["counts"].items())) or "nothing new"),
+            "nothing": lambda: "  no downloads captured",
+        }.get(event)
+        if msg:
+            typer.echo(msg())
+
+    conn = db.connect(cfg.db_path)
+    try:
+        results = fetch_and_import(cfg, conn, target, timeout=timeout, on_event=report)
+    except FetchError as e:
+        typer.echo(str(e))
+        raise typer.Exit(1)
+    finally:
+        conn.close()
+    typer.echo(f"Done. Imported {len(results)} file(s). Run `caregiver serve` to view.")
 
 
 @app.command()

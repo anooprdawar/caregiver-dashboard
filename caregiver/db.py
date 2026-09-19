@@ -83,6 +83,10 @@ CREATE TABLE IF NOT EXISTS sync_log (
   count INTEGER, status TEXT, error TEXT);
 
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+
+-- Files already ingested, so a watched folder does not re-import the same download forever.
+CREATE TABLE IF NOT EXISTS import_log (
+  digest TEXT PRIMARY KEY, path TEXT, kind TEXT, rows INTEGER, imported_at TEXT);
 """
 
 TABLE_COLUMNS: dict[str, list[str]] = {}
@@ -174,6 +178,11 @@ def set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
 def get_meta(conn: sqlite3.Connection, key: str, default: str | None = None) -> str | None:
     r = conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
     return r[0] if r else default
+
+
+def ensure_import_log(conn: sqlite3.Connection) -> None:
+    conn.execute("CREATE TABLE IF NOT EXISTS import_log (digest TEXT PRIMARY KEY, path TEXT, kind TEXT, "
+                 "rows INTEGER, imported_at TEXT)")
 
 
 def log_sync(conn: sqlite3.Connection, source: str, resource_type: str, count: int, status: str,

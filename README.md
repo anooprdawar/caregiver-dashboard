@@ -94,6 +94,55 @@ what it can derive:
 It describes the record. It does not interpret it. Every signal links to the page holding the
 underlying data so you can check it before repeating it to a clinician.
 
+## Keeping it current
+
+Two commands, and you only ever need the first one.
+
+### `caregiver watch` — the reliable one
+
+```bash
+caregiver watch ~/Downloads --data ~/health
+```
+
+It polls the folder and imports anything clinical that appears, deciding what a file is by reading
+its content rather than trusting the name. A MyChart C-CDA zip, an Apple Health export, a loose
+FHIR json — all the same gesture: download it, and it is in the dashboard seconds later.
+
+It never logs in and never touches a password, so there is nothing in it to break when a portal
+redesigns its pages. It skips part-written downloads, ignores the same file re-downloaded under a
+new name (it hashes content), and will not import twice.
+
+Leave it running in a terminal alongside `caregiver serve`, or point it at a synced folder so a
+download on any device lands in the record.
+
+### `caregiver fetch` — fewer clicks, more moving parts
+
+```bash
+pip install 'caregiver-dashboard[fetch]' && playwright install chromium
+caregiver fetch --url https://mychart.ucsf.edu/ucsf/ --data ~/health
+```
+
+Opens a real browser window on your machine. **You** log in, including any code the portal texts
+you. No password is handled by this program, and none is stored. The browser profile is kept under
+`data/browser` (mode 0700), so once you tell the portal to remember the device, later runs usually
+go straight through. It then tries to open the download page for you, captures whatever downloads,
+and imports it.
+
+The automation is best-effort by design: every health system themes MyChart differently, so if it
+cannot find the right link it simply leaves the browser open and catches the file when you click
+Download yourself. That fallback is the normal case, not a failure.
+
+Two things to know before you rely on it. Automating a login may sit awkwardly with the portal's
+terms of use even though it is your own account and your own data, so read them and decide. And it
+is the fragile half of this system: when it breaks, `caregiver watch` still works.
+
+### What cannot be automated from a chat session
+
+An assistant running in a cloud container cannot drive the browser on your laptop, cannot see your
+logged-in session, and cannot receive the code sent to your phone. Any tool that did this for you
+was a browser extension running locally, with you present. `caregiver fetch` is that same shape:
+local, headed, and with you doing the authentication.
+
 ## Clearing the demo patient
 
 The demo loads into whatever data directory you point at. To swap it for the real record:
@@ -236,9 +285,9 @@ caregiver/
   textfmt.py        renders clinical note text (ALL-CAPS headings, "LABEL:" run-ins, markdown) as HTML
   brief.py          one-page appointment brief (markdown + HTML)
   demo.py           synthetic myeloma patient
-tests/              75 tests: normalizer, C-CDA + Apple Health import, synthesis signals,
-                    intervention detection, course reconstruction, note rendering, every
-                    route, notes, reset, migration
+tests/              85 tests: normalizer, C-CDA + Apple Health import, synthesis signals,
+                    intervention detection, course reconstruction, note rendering, content
+                    sniffing, watch-folder ingest, every route, notes, reset, migration
 ```
 
 `caregiver reload` re-normalizes `data/raw/` after you improve a mapping; nothing pulled is ever lost.

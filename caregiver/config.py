@@ -59,6 +59,8 @@ class Config:
     patient_label: str = "Patient"
     fhir: FhirConfig = field(default_factory=FhirConfig)
     web_port: int = 8080
+    portal_url: str = ""          # the MyChart login page for your health system
+    watch_dir: str = ""           # folder to watch for downloads, e.g. ~/Downloads
 
     @property
     def db_path(self) -> Path:
@@ -84,8 +86,18 @@ class Config:
     def exports_dir(self) -> Path:
         return self.data_dir / "exports"
 
+    @property
+    def browser_dir(self) -> Path:
+        """Persistent browser profile, so the portal's "remember this device" survives runs."""
+        return self.data_dir / "browser"
+
+    @property
+    def downloads_dir(self) -> Path:
+        return self.imports_dir / "downloads"
+
     def ensure_dirs(self) -> None:
-        for d in (self.data_dir, self.raw_dir, self.imaging_dir, self.imports_dir, self.exports_dir):
+        for d in (self.data_dir, self.raw_dir, self.imaging_dir, self.imports_dir, self.exports_dir,
+                  self.downloads_dir):
             d.mkdir(parents=True, exist_ok=True)
         try:
             os.chmod(self.data_dir, 0o700)
@@ -96,6 +108,11 @@ class Config:
 CONFIG_TEMPLATE = """# Caregiver Dashboard configuration. Copy to data/config.toml and edit.
 patient_label = "Mom"        # how the dashboard refers to the patient
 web_port = 8080
+
+# Your health system's MyChart login page, used by `caregiver fetch`.
+# portal_url = "https://mychart.ucsf.edu/ucsf/"
+# Folder `caregiver watch` monitors for downloads.
+# watch_dir = "~/Downloads"
 
 [fhir]
 # 1. Register a *patient-facing* app at https://fhir.epic.com (free). Redirect URI must be
@@ -120,6 +137,8 @@ def load(data_dir: Path | None = None) -> Config:
         raw = tomllib.loads(path.read_text())
         cfg.patient_label = raw.get("patient_label", cfg.patient_label)
         cfg.web_port = int(raw.get("web_port", cfg.web_port))
+        cfg.portal_url = raw.get("portal_url", "")
+        cfg.watch_dir = raw.get("watch_dir", "")
         f = raw.get("fhir", {})
         cfg.fhir = FhirConfig(
             base_url=f.get("base_url", EPIC_SANDBOX_R4).rstrip("/") + "/",
